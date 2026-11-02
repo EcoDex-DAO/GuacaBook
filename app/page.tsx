@@ -4,73 +4,108 @@ import { get, set } from "idb-keyval";
 import exifr from "exifr";
 import JSZip from "jszip";
 import {
-  Bird,
   Box,
   Dataset,
   Photo,
   coco,
   emptyDataset,
   makeBox,
+  stepValid,
 } from "../lib/dataset";
+import ViewReference from "./components/ViewReference";
 const uid = () => crypto.randomUUID();
+const steps = [
+  "Qualité",
+  "Point de vue",
+  "Corps",
+  "Œil",
+  "Région périoculaire",
+  "Validation",
+];
+const titles = [
+  "La photo est-elle exploitable ?",
+  "D’où a été prise cette photo ?",
+  "L’ara est-il entièrement visible ?",
+  "Voyez-vous un œil ?",
+  "Délimitez la région périoculaire",
+  "Vérifiez cette photo",
+];
 const localDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
 export default function Home() {
   const [data, update] = useState<Dataset>(emptyDataset),
     [ready, setReady] = useState(false),
     [status, setStatus] = useState("Chargement du brouillon…"),
-    [active, setActive] = useState(""),
+    [logged, setLogged] = useState(false),
+    [profile, setProfile] = useState(""),
+    [tab, setTab] = useState("dataset"),
+    [screen, setScreen] = useState<"animals" | "batch" | "annotate">("animals"),
     [bird, setBird] = useState(""),
-    [category, setCategory] = useState<Box["category"]>("periocular_region"),
-    [side, setSide] = useState<Box["side"]>("unknown"),
+    [active, setActive] = useState(""),
+    [name, setName] = useState(""),
+    [species, setSpecies] = useState(""),
     [session, setSession] = useState(""),
     [busy, setBusy] = useState(false),
     [url, setUrl] = useState(""),
-    [name, setName] = useState(""),
-    [species, setSpecies] = useState("");
-  const svg = useRef<SVGSVGElement>(null),
-    saveQueue = useRef(Promise.resolve()),
-    [drawing, draw] = useState<{
-      start: { x: number; y: number };
-      end: { x: number; y: number };
-    } | null>(null);
-  const photo = data.photos.find((p) => p.id === active);
+    [side, setSide] = useState<Box["side"]>("unknown"),
+    [message, setMessage] = useState("");
+  const queue = useRef(Promise.resolve());
+  const [drawing, draw] = useState<{
+    start: { x: number; y: number };
+    end: { x: number; y: number };
+  } | null>(null);
+  const photo = data.photos.find((p) => p.id === active),
+    step = photo?.workflowStep ?? 0;
+  const selected = data.birds.find((b) => b.id === bird);
+  const photos = data.photos.filter((p) =>
+    bird
+      ? p.birdId === bird ||
+        (!p.birdId && p.boxes.some((b) => b.birdId === bird))
+      : !p.birdId,
+  );
+  const batch = photo
+    ? photos.filter((p) =>
+        photo.batchId
+          ? p.batchId === photo.batchId
+          : p.sessionId === photo.sessionId,
+      )
+    : [];
   useEffect(() => {
     get<Dataset>("guacabook-v1")
       .then((d) => {
         if (d) {
           update(d);
-          setActive(d.photos[0]?.id || "");
+          setProfile(d.profile);
+          setLogged(!!d.profile);
           setBird(d.birds[0]?.id || "");
         }
         setReady(true);
-        setStatus("Brouillon chargé — stockage local uniquement");
       })
       .catch(() =>
         setStatus(
-          "Stockage local inaccessible. Rechargez ou vérifiez les permissions du navigateur.",
+          "Stockage local inaccessible. Vérifiez les permissions du navigateur.",
         ),
       );
   }, []);
   useEffect(() => {
     if (!ready) return;
-    let alive = true;
+    let live = true;
     setStatus("Enregistrement…");
-    saveQueue.current = saveQueue.current
+    queue.current = queue.current
       .catch(() => {})
       .then(() => set("guacabook-v1", data));
-    saveQueue.current
+    queue.current
       .then(() => {
-        if (alive) setStatus("Brouillon enregistré sur cet appareil");
+        if (live) setStatus("Brouillon enregistré sur cet appareil");
       })
       .catch(() => {
-        if (alive)
+        if (live)
           setStatus(
-            "Échec de sauvegarde : stockage plein ou indisponible. Exportez vos données.",
+            "Échec de sauvegarde. Exportez vos données : stockage plein ou indisponible.",
           );
       });
     return () => {
-      alive = false;
+      live = false;
     };
   }, [data, ready]);
   useEffect(() => {
@@ -82,78 +117,85 @@ export default function Home() {
     setUrl(u);
     return () => URL.revokeObjectURL(u);
   }, [photo?.id, photo?.blob]);
+  useEffect(() => {
+    draw(null);
+    setMessage("");
+    setSide("unknown");
+  }, [active, step]);
   function patchPhoto(patch: Partial<Photo>) {
     if (photo)
       update((d) => ({
         ...d,
         photos: d.photos.map((p) =>
-          p.id === photo.id ? { ...p, ...patch } : p,
+          p.id === photo.id ? { ...p, completed: false, ...patch } : p,
         ),
       }));
   }
-  function addBird() {
-    const b: Bird = { id: uid(), name: name.trim(), species: species.trim() };
-    update((d) => ({ ...d, birds: [...d.birds, b] }));
-    setBird(b.id);
-    setName("");
-    setSpecies("");
+  function choose(id: string) {
+    setBird(id);
+    setScreen("batch");
   }
   async function importPhotos(files: FileList | null) {
-    if (!files) return;
+    if (!files || !bird) return;
     setBusy(true);
-    const imported: Photo[] = [];
-    const failed: string[] = [];
-    for (const file of Array.from(files)) {
-      try {
-        const bitmap = await createImageBitmap(file, {
-          imageOrientation: "from-image",
-        });
-        let capturedAt = "";
+    setMessage("");
+    const imported: Photo[] = [],
+      failed: string[] = [];
+    const batchId = uid();
+    try {
+      for (const file of Array.from(files)) {
         try {
-          const meta = await exifr.parse(file, { pick: ["DateTimeOriginal"] });
-          if (meta?.DateTimeOriginal instanceof Date)
-            capturedAt = localDate(meta.DateTimeOriginal);
-        } catch {}
-        imported.push({
-          id: uid(),
-          name: file.name.replace(/[^\p{L}\p{N}._-]/gu, "_"),
-          blob: file,
-          width: bitmap.width,
-          height: bitmap.height,
-          capturedAt,
-          sessionId: session.trim(),
-          quality: "unreviewed",
-          boxes: [],
-        });
-        bitmap.close();
-      } catch {
-        failed.push(file.name);
+          const bitmap = await createImageBitmap(file, {
+            imageOrientation: "from-image",
+          });
+          let capturedAt = "";
+          try {
+            const meta = await exifr.parse(file, {
+              pick: ["DateTimeOriginal"],
+            });
+            if (meta?.DateTimeOriginal instanceof Date)
+              capturedAt = localDate(meta.DateTimeOriginal);
+          } catch {}
+          imported.push({
+            id: uid(),
+            name: file.name.replace(/[^\p{L}\p{N}._-]/gu, "_"),
+            blob: file,
+            width: bitmap.width,
+            height: bitmap.height,
+            capturedAt,
+            sessionId: session.trim(),
+            birdId: bird,
+            batchId,
+            quality: "unreviewed",
+            workflowStep: 0,
+            boxes: [],
+          });
+          bitmap.close();
+        } catch {
+          failed.push(file.name);
+        }
       }
+      update((d) => ({ ...d, photos: [...d.photos, ...imported] }));
+      if (imported.length) {
+        setActive(imported[0].id);
+        setScreen("annotate");
+      }
+      if (failed.length)
+        setMessage(
+          `Fichiers non pris en charge : ${failed.join(", ")}. Convertissez les HEIC/RAW en JPEG ou PNG.`,
+        );
+    } finally {
+      setBusy(false);
     }
-    update((d) => ({ ...d, photos: [...d.photos, ...imported] }));
-    if (imported.length) setActive(imported[0].id);
-    setBusy(false);
-    if (failed.length)
-      alert(
-        `Photos non prises en charge : ${failed.join(", ")}. Convertissez les fichiers HEIC/RAW en JPEG ou PNG.`,
-      );
   }
-  const point = (e: React.PointerEvent<SVGSVGElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    return {
-      x: ((e.clientX - r.left) / r.width) * (photo?.width || 1),
-      y: ((e.clientY - r.top) / r.height) * (photo?.height || 1),
-    };
-  };
   async function download() {
     setBusy(true);
     try {
-      const result = coco(data);
       const zip = new JSZip();
-      zip.file("annotations.json", JSON.stringify(result, null, 2));
+      zip.file("annotations.json", JSON.stringify(coco(data), null, 2));
       zip.file(
         "README.txt",
-        "GuacaBook v1 — CC BY 4.0\nImages originales, annotations en pixels après orientation EXIF. Voir le README du projet pour les extensions. Aucun recadrage généré. Les originaux peuvent contenir des métadonnées privées : inspectez-les avant de partager cette archive.",
+        "GuacaBook v2 — CC BY 4.0\nLes originaux peuvent contenir des métadonnées privées. Coordonnées après orientation EXIF. Catégories : macaw (1), periocular_region (2), eye (3). images[].guacabook contient individual_id, batch_id, viewpoint (azimuth: avant 0°, droite 90°, dos 180°, gauche 270°; elevation: dessus +30°, hauteur 0°, dessous -30°), body_visibility, eye_visible, periocular_visible et annotation_status. Point de vue null = inconnu/non renseigné. Consultez README.md du projet. Aucun recadrage généré.",
       );
       for (const p of data.photos) zip.file(`images/${p.id}-${p.name}`, p.blob);
       const blob = await zip.generateAsync({ type: "blob" });
@@ -164,11 +206,83 @@ export default function Home() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(u), 30000);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Échec de l’export");
+      setMessage(e instanceof Error ? e.message : "Échec de l’export");
     } finally {
       setBusy(false);
     }
   }
+  const category: Box["category"] | undefined =
+    step === 2
+      ? "macaw"
+      : step === 3
+        ? "eye"
+        : step === 4
+          ? "periocular_region"
+          : undefined;
+  const canDraw =
+    !!photo &&
+    !!category &&
+    (step === 2
+      ? ["full", "partial"].includes(photo.bodyVisibility || "")
+      : step === 3
+        ? photo.eyeVisible === "yes"
+        : photo.eyeVisible === "yes" && photo.regionVisible === "yes");
+  function answer(patch: Partial<Photo>, remove: Box["category"][] = []) {
+    if (!photo) return;
+    patchPhoto({
+      ...patch,
+      boxes: photo.boxes.filter(
+        (b) =>
+          b.birdId !== (photo.birdId || "") || !remove.includes(b.category),
+      ),
+    });
+  }
+  function point(e: React.PointerEvent<SVGSVGElement>) {
+    const r = e.currentTarget.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / r.width) * (photo?.width || 1),
+      y: ((e.clientY - r.top) / r.height) * (photo?.height || 1),
+    };
+  }
+  function openPhoto(p: Photo) {
+    if (!p.birdId && bird)
+      update((d) => ({
+        ...d,
+        photos: d.photos.map((x) =>
+          x.id === p.id ? { ...x, birdId: bird } : x,
+        ),
+      }));
+    setActive(p.id);
+    if (p.birdId) setBird(p.birdId);
+    setScreen("annotate");
+  }
+  function advance() {
+    if (!photo) return;
+    if (!stepValid(photo, step)) {
+      setMessage(
+        "Répondez à la question et tracez la zone demandée avant de continuer.",
+      );
+      return;
+    }
+    if (step === 5) {
+      patchPhoto({ completed: true });
+      const next = batch.find((p) => p.id !== photo.id && !p.completed);
+      if (next) {
+        setActive(next.id);
+      } else {
+        setScreen("batch");
+        setMessage(
+          "Lot terminé. Vous pouvez exporter ou importer un nouveau lot.",
+        );
+      }
+      return;
+    }
+    patchPhoto({
+      workflowStep: step === 3 && photo.eyeVisible !== "yes" ? 5 : step + 1,
+    });
+  }
+  const boxList =
+    photo?.boxes.filter((b) => !category || b.category === category) || [];
   if (!ready)
     return (
       <main>
@@ -176,402 +290,797 @@ export default function Home() {
         <p role="status">{status}</p>
       </main>
     );
-  return (
-    <main>
-      <header>
-        <div>
-          <span className="eyebrow">COLLECTER · ANNOTER · COMPRENDRE</span>
+  if (!logged)
+    return (
+      <main className="login">
+        <div className="brand">◉ GuacaBook</div>
+        <section>
+          <span className="eyebrow">BIENVENUE DANS VOTRE CARNET</span>
           <h1>
-            GuacaBook <span>↗</span>
+            Un regard.
+            <br />
+            Une identité.
           </h1>
-          <p>Chaque regard raconte une histoire. Construisons la collection.</p>
-        </div>
-        <span className="badge">VERSION LOCALE · 01</span>
-      </header>
-      <div className="notice">
-        Vos photos restent dans ce navigateur. Exportez régulièrement : effacer
-        les données du site supprime les brouillons. Aucun modèle d’IA ni suivi
-        GPS.
-      </div>
-      <div className="workspace">
-        <aside>
-          <section>
-            <h2>01 / Contributeur</h2>
+          <p>
+            Créez la collection photographique de vos aras, une photo après
+            l’autre.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!profile.trim()) return;
+              update((d) => ({ ...d, profile: profile.trim() }));
+              setLogged(true);
+            }}
+          >
             <label>
               Nom ou pseudonyme
               <input
-                value={data.profile}
-                onChange={(e) => update({ ...data, profile: e.target.value })}
-                placeholder="Votre pseudonyme"
+                autoComplete="nickname"
+                required
+                value={profile}
+                onChange={(e) => setProfile(e.target.value)}
+                placeholder="Comment vous appeler ?"
               />
             </label>
-            <p className="small">
-              Ce nom sera inclus dans l’export pour l’attribution.
-            </p>
-          </section>
-          <section>
-            <h2>02 / Vos aras</h2>
-            <label>
-              Ara sélectionné
-              <select value={bird} onChange={(e) => setBird(e.target.value)}>
-                <option value="">Identité inconnue</option>
-                {data.birds.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name || b.id.slice(0, 8)} ·{" "}
-                    {b.species || "Espèce inconnue"}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <details>
-              <summary>Enregistrer un ara</summary>
-              <label>
-                Nom (facultatif)
-                <input value={name} onChange={(e) => setName(e.target.value)} />
-              </label>
-              <label>
-                Espèce (laisser vide si inconnue)
-                <input
-                  value={species}
-                  onChange={(e) => setSpecies(e.target.value)}
-                  placeholder="Ex. Ara ararauna"
-                />
-              </label>
-              <button onClick={addBird}>Créer un ara</button>
-            </details>
-            {bird && (
-              <div className="coverage">
-                <strong>Collection de cet ara</strong>
-                {(["left", "right", "unknown"] as const).map((s) => {
-                  const ps = data.photos.filter((p) =>
-                    p.boxes.some(
-                      (b) =>
-                        b.birdId === bird &&
-                        b.category === "periocular_region" &&
-                        b.side === s,
-                    ),
-                  );
-                  return (
-                    <p key={s}>
-                      {s === "left"
-                        ? "Gauche"
-                        : s === "right"
-                          ? "Droite"
-                          : "Côté inconnu"}{" "}
-                      : {ps.length} photo(s),{" "}
-                      {new Set(ps.map((p) => p.sessionId).filter(Boolean)).size}{" "}
-                      séance(s)
-                    </p>
-                  );
-                })}
-                <p className="small">
-                  Comptage des annotations ; netteté et diversité restent à
-                  vérifier.
-                </p>
-              </div>
-            )}
-          </section>
-          <section>
-            <h2>03 / Importer</h2>
-            <label>
-              Séance de prise de vue
-              <input
-                value={session}
-                onChange={(e) => setSession(e.target.value)}
-                placeholder="Ex. Jardin — 2 novembre matin"
-              />
-            </label>
-            <label className="upload">
-              + Choisir des photos
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                disabled={busy}
-                onChange={(e) => {
-                  void importPhotos(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <p className="small">
-              JPEG, PNG et formats reconnus par votre navigateur. La date reste
-              inconnue si l’EXIF est absent.
-            </p>
-          </section>
-        </aside>
-        <article>
-          <div className="sectionhead">
-            <h2>04 / Atelier d’annotation</h2>
-            <span>{data.photos.length} photo(s)</span>
-          </div>
-          {data.photos.length > 0 && (
-            <nav aria-label="Photos" className="photolist">
-              {data.photos.map((p, i) => (
-                <button
-                  className={p.id === active ? "selected" : ""}
-                  key={p.id}
-                  onClick={() => {
-                    setActive(p.id);
-                    draw(null);
-                  }}
-                >
-                  {i + 1}. {p.name}
-                </button>
-              ))}
-            </nav>
-          )}
-          {!photo ? (
-            <div className="empty">
-              <span>◎</span>
-              <h3>Un premier regard</h3>
-              <p>Créez un ara, puis importez ses photos pour commencer.</p>
+            <button className="primary" type="submit">
+              Entrer dans GuacaBook →
+            </button>
+          </form>
+          <p className="small">
+            Profil local mémorisé sur cet appareil. Il ne s’agit pas d’un compte
+            sécurisé. Photos et brouillons restent dans ce navigateur.
+          </p>
+        </section>
+      </main>
+    );
+  return (
+    <main>
+      <header>
+        <div className="brand">◉ GuacaBook</div>
+        <button
+          onClick={() => setLogged(false)}
+          aria-label="Modifier mon profil"
+        >
+          {data.profile} · Mon profil
+        </button>
+      </header>
+      <nav className="tabs" aria-label="Sections">
+        {[
+          ["dataset", "Dataset"],
+          ["identification", "Identification"],
+          ["twin", "Jumeau numérique"],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            aria-current={tab === id ? "page" : undefined}
+            onClick={() => setTab(id)}
+          >
+            {label}
+            {id !== "dataset" && <small>À venir</small>}
+          </button>
+        ))}
+      </nav>
+      {tab !== "dataset" ? (
+        <section className="placeholder">
+          <span className="eyebrow">PROCHAINEMENT</span>
+          <h1>{tab === "twin" ? "Jumeau numérique" : "Identification"}</h1>
+          <p>
+            {tab === "twin"
+              ? "Un espace dédié à la représentation de votre animal."
+              : "Un espace dédié à l’identification des animaux."}{" "}
+            Ce module n’est pas encore disponible.
+          </p>
+          <button onClick={() => setTab("dataset")}>Revenir au dataset</button>
+        </section>
+      ) : (
+        <>
+          <div className="pagehead">
+            <div>
+              <span className="eyebrow">VOTRE COLLECTION SCIENTIFIQUE</span>
+              <h1>
+                {screen === "animals"
+                  ? "Commençons par vos aras."
+                  : screen === "batch"
+                    ? `Les photos de ${selected?.name || "votre ara"}.`
+                    : "Une photo, un parcours."}
+              </h1>
               <p>
-                Privilégiez une région autour de l’œil nette, à gauche et à
-                droite, à plusieurs dates et moments de la journée. Complétez
-                avec des vues de l’animal entier.
+                {screen === "animals"
+                  ? "Créez vos animaux, puis choisissez celui que vous souhaitez photographier."
+                  : screen === "batch"
+                    ? "Déposez un lot pour cet animal. Vous annoterez ensuite chaque photo, du début à la fin."
+                    : "Qualité, angle, corps, œil, région périoculaire : gardez le même rythme pour chaque photo."}
               </p>
             </div>
-          ) : (
-            <>
-              <div className="toolbar">
-                <label>
-                  Catégorie
-                  <select
-                    value={category}
-                    onChange={(e) =>
-                      setCategory(e.target.value as Box["category"])
-                    }
-                  >
-                    <option value="periocular_region">
-                      Région périoculaire
-                    </option>
-                    <option value="macaw">Ara entier</option>
-                  </select>
-                </label>
-                {category === "periocular_region" && (
-                  <label>
-                    Côté anatomique
-                    <select
-                      value={side}
-                      onChange={(e) => setSide(e.target.value as Box["side"])}
-                    >
-                      <option value="unknown">Inconnu</option>
-                      <option value="left">Gauche</option>
-                      <option value="right">Droite</option>
-                    </select>
-                  </label>
-                )}
-              </div>
-              <p className="small">
-                Tracez un rectangle sur la photo. L’identité sélectionnée et le
-                côté s’appliquent aux nouvelles annotations.
-              </p>
-              <svg
-                ref={svg}
-                className="canvas"
-                role="img"
-                aria-label="Photo à annoter par glisser-déposer"
-                viewBox={`0 0 ${photo.width} ${photo.height}`}
-                onPointerDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  const p = point(e);
-                  draw({ start: p, end: p });
-                }}
-                onPointerMove={(e) => {
-                  if (drawing) draw({ ...drawing, end: point(e) });
-                }}
-                onPointerCancel={() => draw(null)}
-                onPointerUp={(e) => {
-                  if (!drawing) return;
-                  const bbox = makeBox(
-                    drawing.start,
-                    point(e),
-                    photo.width,
-                    photo.height,
-                  );
-                  if (bbox[2] >= 3 && bbox[3] >= 3)
-                    patchPhoto({
-                      boxes: [
-                        ...photo.boxes,
-                        { id: uid(), category, birdId: bird, side, bbox },
-                      ],
-                    });
-                  draw(null);
-                }}
-              >
-                <image href={url} width={photo.width} height={photo.height} />
-                {photo.boxes.map((b) => (
-                  <rect
-                    key={b.id}
-                    x={b.bbox[0]}
-                    y={b.bbox[1]}
-                    width={b.bbox[2]}
-                    height={b.bbox[3]}
-                    fill="none"
-                    stroke={b.category === "macaw" ? "#ffbf67" : "#79ffca"}
-                    strokeWidth="3"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-                {drawing &&
-                  (() => {
-                    const b = makeBox(
-                      drawing.start,
-                      drawing.end,
-                      photo.width,
-                      photo.height,
-                    );
-                    return (
-                      <rect
-                        x={b[0]}
-                        y={b[1]}
-                        width={b[2]}
-                        height={b[3]}
-                        fill="#ffffff22"
-                        stroke="white"
-                        strokeWidth="2"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    );
-                  })()}
-              </svg>
-              <div className="metadata">
-                <label>
-                  Date et heure (sans fuseau)
-                  <input
-                    type="datetime-local"
-                    step="1"
-                    value={photo.capturedAt}
-                    onChange={(e) => patchPhoto({ capturedAt: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Séance
-                  <input
-                    value={photo.sessionId}
-                    onChange={(e) => patchPhoto({ sessionId: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Qualité visuelle
-                  <select
-                    value={photo.quality}
-                    onChange={(e) =>
-                      patchPhoto({
-                        quality: e.target.value as Photo["quality"],
-                      })
-                    }
-                  >
-                    <option value="unreviewed">À vérifier</option>
-                    <option value="usable">Nette / exploitable</option>
-                    <option value="blurry">Floue / à refaire</option>
-                  </select>
-                </label>
-              </div>
-              <ul className="annotations">
-                {photo.boxes.map((b, i) => (
-                  <li key={b.id}>
-                    <span>
-                      {i + 1}.{" "}
-                      {b.category === "macaw" ? "Ara" : "Région périoculaire"} ·{" "}
-                      {data.birds.find((x) => x.id === b.birdId)?.name ||
-                        b.birdId.slice(0, 8) ||
-                        "Identité inconnue"}{" "}
-                      {b.category === "periocular_region"
-                        ? `· ${b.side === "left" ? "gauche" : b.side === "right" ? "droite" : "côté inconnu"}`
-                        : ""}
-                    </span>
-                    <button
-                      onClick={() =>
-                        patchPhoto({
-                          boxes: photo.boxes.filter((x) => x.id !== b.id),
-                        })
-                      }
-                      aria-label={`Supprimer l’annotation ${i + 1}`}
-                    >
-                      Supprimer
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <button
-                className="danger"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Supprimer cette photo et ses annotations du brouillon ?",
-                    )
-                  ) {
-                    update({
-                      ...data,
-                      photos: data.photos.filter((p) => p.id !== photo.id),
-                    });
-                    setActive(
-                      data.photos.find((p) => p.id !== photo.id)?.id || "",
-                    );
-                  }
-                }}
-              >
-                Supprimer cette photo
+            {screen !== "animals" && (
+              <button onClick={() => setScreen("animals")}>
+                ← Mes animaux
               </button>
+            )}
+          </div>
+          {message && (
+            <p role="alert" className="notice">
+              {message}
+            </p>
+          )}
+          {screen === "animals" && (
+            <div className="animalgrid">
+              {data.birds.map((b) => (
+                <section className="animal" key={b.id}>
+                  <span className="avatar">↗</span>
+                  <h2>{b.name || "Ara sans nom"}</h2>
+                  <p>{b.species || "Espèce inconnue"}</p>
+                  <p className="small">
+                    {
+                      data.photos.filter(
+                        (p) =>
+                          p.birdId === b.id ||
+                          p.boxes.some((x) => x.birdId === b.id),
+                      ).length
+                    }{" "}
+                    photo(s) · Identifiant {b.id.slice(0, 8)}
+                  </p>
+                  <button className="primary" onClick={() => choose(b.id)}>
+                    Choisir cet animal →
+                  </button>
+                </section>
+              ))}
+              <section>
+                <h2>+ Créer un animal</h2>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const b = {
+                      id: uid(),
+                      name: name.trim(),
+                      species: species.trim(),
+                    };
+                    update((d) => ({ ...d, birds: [...d.birds, b] }));
+                    setName("");
+                    setSpecies("");
+                    choose(b.id);
+                  }}
+                >
+                  <label>
+                    Nom (facultatif)
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ex. Kiwi"
+                    />
+                  </label>
+                  <label>
+                    Espèce (laisser vide si inconnue)
+                    <input
+                      value={species}
+                      onChange={(e) => setSpecies(e.target.value)}
+                      placeholder="Ex. Ara ararauna"
+                    />
+                  </label>
+                  <button type="submit">Créer un ara</button>
+                </form>
+              </section>
+            </div>
+          )}
+          {screen === "batch" && (
+            <>
+              <div className="batchgrid">
+                <section>
+                  <h2>1. Déposer un lot</h2>
+                  <p>
+                    Animal sélectionné :{" "}
+                    <strong>{selected?.name || "Ara sans nom"}</strong>
+                  </p>
+                  <label>
+                    Séance de prise de vue
+                    <input
+                      value={session}
+                      onChange={(e) => setSession(e.target.value)}
+                      placeholder="Ex. Jardin — matin du 2 novembre"
+                    />
+                  </label>
+                  <label className="upload">
+                    + Choisir les photos du lot
+                    <input
+                      aria-label="Photos du lot"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={busy || !bird}
+                      onChange={(e) => {
+                        void importPhotos(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <p className="small">
+                    JPEG, PNG et formats décodables par votre navigateur.
+                    Choisissez une séance cohérente. Chaque import constitue un
+                    lot distinct.
+                  </p>
+                </section>
+                <section>
+                  <h2>2. Un protocole pour chaque photo</h2>
+                  <ol>
+                    {steps.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ol>
+                  <p className="small">
+                    Collectez les deux côtés, à différentes dates et heures. La
+                    fiabilité de l’identification reste à évaluer.
+                  </p>
+                </section>
+              </div>
+              <section className="collection">
+                <h2>
+                  Collection · {photos.filter((p) => p.completed).length}/
+                  {photos.length} photos validées
+                </h2>
+                <div className="coverage">
+                  {(["left", "right"] as const).map((side) => (
+                    <span key={side}>
+                      {side === "left" ? "Gauche" : "Droite"} :{" "}
+                      {
+                        photos.filter((p) =>
+                          p.boxes.some(
+                            (b) =>
+                              b.category === "periocular_region" &&
+                              b.birdId === bird &&
+                              b.side === side,
+                          ),
+                        ).length
+                      }{" "}
+                      photo(s) ·{" "}
+                      {
+                        new Set(
+                          photos
+                            .filter((p) =>
+                              p.boxes.some(
+                                (b) =>
+                                  b.category === "periocular_region" &&
+                                  b.birdId === bird &&
+                                  b.side === side,
+                              ),
+                            )
+                            .map((p) => p.sessionId)
+                            .filter(Boolean),
+                        ).size
+                      }{" "}
+                      séance(s)
+                    </span>
+                  ))}
+                </div>
+                {!photos.length ? (
+                  <p>Aucune photo pour le moment.</p>
+                ) : (
+                  <ul className="photolist">
+                    {photos.map((p) => (
+                      <li key={p.id}>
+                        <div>
+                          <strong>{p.name}</strong>
+                          <p className="small">
+                            {p.sessionId || "Séance non renseignée"} ·{" "}
+                            {p.completed
+                              ? "Validée"
+                              : `Brouillon · ${steps[p.workflowStep ?? 0]}`}
+                          </p>
+                        </div>
+                        <button onClick={() => openPhoto(p)}>
+                          Reprendre →
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </>
           )}
-        </article>
-      </div>
-      <section className="guide">
-        <h2>Un cadrage cohérent, des données utiles</h2>
-        <p>
-          <strong>Région périoculaire :</strong> incluez l’œil entier et la
-          peau, les lignes ou les plumes distinctives autour, sans couper les
-          détails. Gardez un cadrage comparable entre séances. Le côté est celui
-          de l’animal : en cas de doute, choisissez « inconnu ».
-        </p>
-        <p>
-          <strong>Plusieurs aras ?</strong> Sélectionnez l’identité de chacun
-          avant de tracer ses rectangles. Les boîtes « ara entier » et « région
-          périoculaire » restent distinctes. L’identification par ces détails
-          est une hypothèse à évaluer.
-        </p>
-      </section>
-      <footer>
-        <div>
-          <h2>05 / Exporter la collection</h2>
-          <p>Archive ZIP : photos originales + annotations COCO JSON.</p>
-          <label className="consent">
-            <input
-              type="checkbox"
-              checked={data.consent}
-              onChange={(e) => update({ ...data, consent: e.target.checked })}
-            />
-            Je dispose des droits nécessaires et j’autorise l’utilisation des
-            photos sous licence{" "}
-            <a
-              href="https://creativecommons.org/licenses/by/4.0/"
-              target="_blank"
-              rel="noreferrer"
+          {screen === "annotate" && photo && (
+            <>
+              <div className="lotbar">
+                <button onClick={() => setScreen("batch")}>
+                  ← Retour au lot
+                </button>
+                <span>
+                  {selected?.name || "Ara"} · Photo{" "}
+                  {batch.findIndex((p) => p.id === photo.id) + 1}/{batch.length}{" "}
+                  · {photo.name}
+                </span>
+                <select
+                  aria-label="Choisir une photo du lot"
+                  value={photo.id}
+                  onChange={(e) => {
+                    const p = batch.find((p) => p.id === e.target.value);
+                    if (p) openPhoto(p);
+                  }}
+                >
+                  {batch.map((p, i) => (
+                    <option key={p.id} value={p.id}>
+                      {i + 1}. {p.name}
+                      {p.completed ? " ✓" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <nav className="steps" aria-label="Étapes d’annotation">
+                {steps.map((label, i) => (
+                  <button
+                    key={label}
+                    aria-current={step === i ? "step" : undefined}
+                    onClick={() => patchPhoto({ workflowStep: i })}
+                  >
+                    <span>{i + 1}</span>
+                    {label}
+                  </button>
+                ))}
+              </nav>
+              <div className="annotationgrid">
+                <section className="imagepanel">
+                  <div className="sectionhead">
+                    <strong>{photo.name}</strong>
+                    <span>
+                      {photo.width} × {photo.height}
+                    </span>
+                  </div>
+                  <svg
+                    className={`canvas ${canDraw ? "drawable" : ""}`}
+                    viewBox={`0 0 ${photo.width} ${photo.height}`}
+                    role="img"
+                    aria-label="Photo à annoter par glisser-déposer"
+                    onPointerDown={(e) => {
+                      if (!canDraw || e.button !== 0) return;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      const p = point(e);
+                      draw({ start: p, end: p });
+                    }}
+                    onPointerMove={(e) => {
+                      if (drawing) draw({ ...drawing, end: point(e) });
+                    }}
+                    onPointerCancel={() => draw(null)}
+                    onPointerUp={(e) => {
+                      if (!drawing || !category) return;
+                      const bbox = makeBox(
+                        drawing.start,
+                        point(e),
+                        photo.width,
+                        photo.height,
+                      );
+                      if (bbox[2] >= 3 && bbox[3] >= 3)
+                        patchPhoto({
+                          boxes: [
+                            ...photo.boxes,
+                            {
+                              id: uid(),
+                              category,
+                              birdId: photo.birdId || "",
+                              side: category === "macaw" ? "unknown" : side,
+                              bbox,
+                            },
+                          ],
+                        });
+                      draw(null);
+                    }}
+                  >
+                    <image
+                      href={url}
+                      width={photo.width}
+                      height={photo.height}
+                    />
+                    {photo.boxes
+                      .filter((b) => !category || b.category === category)
+                      .map((b, i) => (
+                        <g key={b.id}>
+                          <rect
+                            x={b.bbox[0]}
+                            y={b.bbox[1]}
+                            width={b.bbox[2]}
+                            height={b.bbox[3]}
+                            fill="none"
+                            stroke={
+                              b.category === "macaw"
+                                ? "#ffbf67"
+                                : b.category === "eye"
+                                  ? "#94bcff"
+                                  : "#79ffca"
+                            }
+                            strokeWidth="3"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                          <title>
+                            {i + 1}. {b.category}
+                          </title>
+                        </g>
+                      ))}
+                    {drawing &&
+                      (() => {
+                        const b = makeBox(
+                          drawing.start,
+                          drawing.end,
+                          photo.width,
+                          photo.height,
+                        );
+                        return (
+                          <rect
+                            x={b[0]}
+                            y={b[1]}
+                            width={b[2]}
+                            height={b[3]}
+                            fill="#ffffff22"
+                            stroke="white"
+                            strokeWidth="2"
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        );
+                      })()}
+                  </svg>
+                  <p className="small">
+                    {canDraw
+                      ? "Glissez sur la photo pour dessiner un rectangle. Répétez pour plusieurs zones."
+                      : "La photo reste visible pendant chaque étape."}
+                  </p>
+                  {boxList.length > 0 && (
+                    <ul className="annotations">
+                      {boxList.map((b, i) => (
+                        <li key={b.id}>
+                          <span>
+                            {i + 1}.{" "}
+                            {b.category === "macaw"
+                              ? "Corps"
+                              : b.category === "eye"
+                                ? "Œil"
+                                : "Région périoculaire"}
+                            {b.category !== "macaw"
+                              ? ` · ${b.side === "left" ? "gauche" : b.side === "right" ? "droite" : "côté inconnu"}`
+                              : ""}
+                          </span>
+                          <button
+                            aria-label={`Supprimer l’annotation ${i + 1}`}
+                            onClick={() =>
+                              patchPhoto({
+                                boxes: photo.boxes.filter((x) => x.id !== b.id),
+                              })
+                            }
+                          >
+                            Supprimer
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+                <section className="question">
+                  <span className="eyebrow">ÉTAPE {step + 1} / 6</span>
+                  <h2>{titles[step]}</h2>
+                  {step === 0 && (
+                    <>
+                      <p>
+                        Vérifiez la netteté des détails. Une photo floue peut
+                        être conservée, mais signalez-la.
+                      </p>
+                      <div className="choices">
+                        {[
+                          ["usable", "Nette / exploitable"],
+                          ["blurry", "Floue / à refaire"],
+                        ].map(([v, l]) => (
+                          <button
+                            key={v}
+                            aria-pressed={photo.quality === v}
+                            onClick={() =>
+                              patchPhoto({ quality: v as Photo["quality"] })
+                            }
+                          >
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                      <label>
+                        Date et heure (sans fuseau)
+                        <input
+                          type="datetime-local"
+                          step="1"
+                          value={photo.capturedAt}
+                          onChange={(e) =>
+                            patchPhoto({ capturedAt: e.target.value })
+                          }
+                        />
+                      </label>
+                      <p className="small">
+                        Date EXIF si disponible. Laissez vide si inconnue.
+                      </p>
+                      <label>
+                        Séance
+                        <input
+                          value={photo.sessionId}
+                          onChange={(e) =>
+                            patchPhoto({ sessionId: e.target.value })
+                          }
+                        />
+                      </label>
+                    </>
+                  )}
+                  {step === 1 && (
+                    <ViewReference
+                      value={photo.viewpoint}
+                      onChange={(viewpoint) => patchPhoto({ viewpoint })}
+                    />
+                  )}
+                  {step === 2 && (
+                    <>
+                      <p>
+                        Indiquez si l’animal est complet, puis encadrez tout le
+                        corps visible, queue comprise si elle apparaît.
+                      </p>
+                      <div className="choices">
+                        {[
+                          ["full", "Oui, l’ara est entier"],
+                          ["partial", "Non, une partie est hors cadre"],
+                          ["not_visible", "Le corps n’est pas visible"],
+                          ["unknown", "Je ne sais pas"],
+                        ].map(([v, l]) => (
+                          <button
+                            key={v}
+                            aria-pressed={photo.bodyVisibility === v}
+                            onClick={() =>
+                              answer(
+                                {
+                                  bodyVisibility: v as Photo["bodyVisibility"],
+                                },
+                                ["not_visible", "unknown"].includes(v)
+                                  ? ["macaw"]
+                                  : [],
+                              )
+                            }
+                          >
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                      {canDraw && (
+                        <p className="drawhint">
+                          Tracez maintenant la boîte du corps visible sur la
+                          photo.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {step === 3 && (
+                    <>
+                      <p>
+                        Un œil discernable permet de préparer l’annotation des
+                        détails individuels.
+                      </p>
+                      <div className="choices">
+                        {[
+                          ["yes", "Oui, je vois un œil"],
+                          ["no", "Non, aucun œil visible"],
+                          ["unknown", "Je ne sais pas"],
+                        ].map(([v, l]) => (
+                          <button
+                            key={v}
+                            aria-pressed={photo.eyeVisible === v}
+                            onClick={() =>
+                              answer(
+                                {
+                                  eyeVisible: v as Photo["eyeVisible"],
+                                  ...(v !== "yes"
+                                    ? { regionVisible: undefined }
+                                    : {}),
+                                },
+                                v !== "yes" ? ["eye", "periocular_region"] : [],
+                              )
+                            }
+                          >
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                      {canDraw && (
+                        <p className="drawhint">
+                          Encadrez l’œil lui-même. La région autour sera annotée
+                          à l’étape suivante.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {step === 4 && (
+                    <>
+                      {photo.eyeVisible !== "yes" ? (
+                        <p>
+                          Étape non applicable : aucun œil n’a été confirmé
+                          visible.
+                        </p>
+                      ) : (
+                        <>
+                          <p>
+                            Incluez l’œil entier et les motifs environnants :
+                            peau, lignes et plumes distinctives. Gardez un
+                            cadrage comparable d’une séance à l’autre.
+                          </p>
+                          <div className="choices">
+                            {[
+                              ["yes", "La région est visible"],
+                              ["no", "La région est masquée / coupée"],
+                              ["unknown", "Je ne sais pas"],
+                            ].map(([v, l]) => (
+                              <button
+                                key={v}
+                                aria-pressed={photo.regionVisible === v}
+                                onClick={() =>
+                                  answer(
+                                    {
+                                      regionVisible:
+                                        v as Photo["regionVisible"],
+                                    },
+                                    v !== "yes" ? ["periocular_region"] : [],
+                                  )
+                                }
+                              >
+                                {l}
+                              </button>
+                            ))}
+                          </div>
+                          {canDraw && (
+                            <p className="drawhint">
+                              Tracez une boîte plus large autour de l’œil et de
+                              ses détails distinctifs.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                  {(step === 3 || step === 4) && canDraw && (
+                    <label>
+                      Côté anatomique de la nouvelle zone
+                      <select
+                        value={side}
+                        onChange={(e) => setSide(e.target.value as Box["side"])}
+                      >
+                        <option value="unknown">Inconnu</option>
+                        <option value="left">Gauche de l’animal</option>
+                        <option value="right">Droite de l’animal</option>
+                      </select>
+                      <span className="small">
+                        Ce n’est pas le côté de l’image. En cas de doute, gardez
+                        « inconnu ».
+                      </span>
+                    </label>
+                  )}
+                  {step === 5 && (
+                    <>
+                      <p>
+                        Cette photo sera marquée comme validée. Vous passerez
+                        ensuite à la prochaine photo non terminée du lot.
+                      </p>
+                      <ul className="review">
+                        {steps.slice(0, 5).map((s, i) => (
+                          <li key={s}>
+                            <span>{s}</span>
+                            <button
+                              onClick={() => patchPhoto({ workflowStep: i })}
+                            >
+                              {stepValid(photo, i)
+                                ? "✓ Vérifier"
+                                : "À compléter →"}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="small">
+                        Le point de vue et la latéralité sont des déclarations
+                        du contributeur. Aucune information inconnue n’est
+                        déduite.
+                      </p>
+                    </>
+                  )}
+                  <div className="stepactions">
+                    <button
+                      disabled={step === 0}
+                      onClick={() =>
+                        patchPhoto({
+                          workflowStep:
+                            step === 5 && photo.eyeVisible !== "yes"
+                              ? 3
+                              : Math.max(0, step - 1),
+                        })
+                      }
+                    >
+                      Précédent
+                    </button>
+                    <button
+                      className="primary"
+                      disabled={!stepValid(photo, step)}
+                      onClick={advance}
+                    >
+                      {step === 5 ? "Valider cette photo →" : "Continuer →"}
+                    </button>
+                  </div>
+                  <button className="quiet" onClick={() => setScreen("batch")}>
+                    Quitter et reprendre plus tard
+                  </button>
+                </section>
+              </div>
+            </>
+          )}
+          {data.photos.some((p) => !p.birdId) && (
+            <details className="legacy">
+              <summary>
+                Photos de la version précédente sans animal de lot
+              </summary>
+              <p>
+                Les anciens brouillons sont conservés. Choisissez un animal
+                avant de reprendre.
+              </p>
+              {data.photos
+                .filter((p) => !p.birdId)
+                .map((p) => (
+                  <div key={p.id} className="legacyrow">
+                    <span>{p.name}</span>
+                    <button
+                      disabled={!bird}
+                      onClick={() => {
+                        update((d) => ({
+                          ...d,
+                          photos: d.photos.map((x) =>
+                            x.id === p.id ? { ...x, birdId: bird } : x,
+                          ),
+                        }));
+                        setActive(p.id);
+                        setScreen("annotate");
+                      }}
+                    >
+                      Associer à l’animal sélectionné
+                    </button>
+                  </div>
+                ))}
+            </details>
+          )}
+          <footer>
+            <div>
+              <h2>Votre dataset, prêt à exporter</h2>
+              <p>
+                {data.photos.length} photo(s) ·{" "}
+                {data.photos.filter((p) => p.completed).length} validée(s).
+                L’export inclut aussi les brouillons, identifiés comme tels.
+              </p>
+              <label className="consent">
+                <input
+                  type="checkbox"
+                  checked={data.consent}
+                  onChange={(e) =>
+                    update({ ...data, consent: e.target.checked })
+                  }
+                />
+                Je dispose des droits nécessaires et j’autorise l’utilisation de
+                ces photos sous licence{" "}
+                <a
+                  href="https://creativecommons.org/licenses/by/4.0/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  CC BY 4.0
+                </a>
+                , redistribution et usage commercial avec attribution inclus.
+              </label>
+              <p className="small">
+                Photos et brouillons restent dans ce navigateur. Exportez
+                régulièrement. Les originaux peuvent contenir des métadonnées
+                privées : inspectez-les avant partage. Aucun GPS n’est extrait.
+              </p>
+            </div>
+            <button
+              className="primary"
+              disabled={!data.consent || !data.photos.length || busy}
+              onClick={() => void download()}
             >
-              CC BY 4.0
-            </a>
-            , y compris la redistribution et l’usage commercial avec
-            attribution.
-          </label>
-          <p className="small">
-            L’archive conserve les originaux : leurs métadonnées peuvent inclure
-            des informations privées, dont la localisation. Inspectez-les avant
-            de partager. Aucun GPS n’est extrait par l’application.
-          </p>
-        </div>
-        <button
-          className="primary"
-          disabled={!data.consent || !data.photos.length || busy}
-          onClick={() => void download()}
-        >
-          {busy ? "Traitement…" : "Exporter le dataset ↗"}
-        </button>
-      </footer>
-      <p role="status" className="savestatus">
+              {busy ? "Traitement…" : "Exporter le dataset ↗"}
+            </button>
+          </footer>
+        </>
+      )}
+      <p className="savestatus" role="status">
         {status}
       </p>
     </main>

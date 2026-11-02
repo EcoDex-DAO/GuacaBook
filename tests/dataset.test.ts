@@ -56,3 +56,63 @@ test("exporte les liens, catégories, inconnues et extensions sans inventer de d
 test("refuse un export sans autorisation", () => {
   assert.throws(() => coco({ ...data, consent: false }), /Autorisation/);
 });
+
+test("le protocole impose les réponses et les boîtes, mais accepte les inconnues explicites", async () => {
+  const { stepValid } = await import("../lib/dataset");
+  const p: import("../lib/dataset").Photo = {
+    ...data.photos[0],
+    birdId: "bird-1",
+    boxes: [],
+    quality: "usable",
+  };
+  assert.equal(stepValid(p, 1), false);
+  assert.equal(stepValid({ ...p, viewpoint: null }, 1), true);
+  assert.equal(stepValid({ ...p, bodyVisibility: "partial" }, 2), false);
+  assert.equal(stepValid({ ...p, bodyVisibility: "unknown" }, 2), true);
+  assert.equal(stepValid({ ...p, eyeVisible: "yes" }, 3), false);
+  assert.equal(stepValid({ ...p, eyeVisible: "no" }, 3), true);
+  assert.equal(stepValid({ ...p, eyeVisible: "no" }, 4), true);
+  assert.equal(
+    stepValid({ ...p, eyeVisible: "yes", regionVisible: "yes" }, 4),
+    false,
+  );
+  assert.equal(
+    stepValid(
+      { ...p, viewpoint: null, bodyVisibility: "unknown", eyeVisible: "no" },
+      5,
+    ),
+    true,
+  );
+});
+test("exporte les nouvelles catégories et le référentiel sans casser les IDs existants", () => {
+  const p: import("../lib/dataset").Photo = {
+    ...data.photos[0],
+    birdId: "bird-1",
+    batchId: "batch-1",
+    viewpoint: { azimuth: 90, elevation: 30 },
+    bodyVisibility: "partial",
+    eyeVisible: "yes",
+    regionVisible: "yes",
+    completed: true,
+    boxes: [
+      ...data.photos[0].boxes,
+      {
+        id: "eye",
+        category: "eye",
+        side: "right",
+        birdId: "bird-1",
+        bbox: [1, 2, 3, 4],
+      },
+    ],
+  };
+  const out = coco({ ...data, photos: [p] });
+  assert.equal(out.annotations[0].category_id, 2);
+  assert.equal(out.annotations[2].category_id, 3);
+  assert.equal(out.annotations[2].guacabook.side, "right");
+  assert.deepEqual(out.images[0].guacabook.viewpoint, {
+    azimuth: 90,
+    elevation: 30,
+  });
+  assert.equal(out.images[0].guacabook.batch_id, "batch-1");
+  assert.equal(out.images[0].guacabook.annotation_status, "complete");
+});

@@ -1,7 +1,7 @@
 export type Bird = { id: string; name: string; species: string };
 export type Box = {
   id: string;
-  category: "macaw" | "periocular_region";
+  category: "macaw" | "periocular_region" | "eye";
   birdId: string;
   side: "left" | "right" | "unknown";
   bbox: [number, number, number, number];
@@ -15,6 +15,14 @@ export type Photo = {
   capturedAt: string;
   sessionId: string;
   boxes: Box[];
+  birdId?: string;
+  batchId?: string;
+  workflowStep?: number;
+  completed?: boolean;
+  viewpoint?: { azimuth: number; elevation: number } | null;
+  bodyVisibility?: "full" | "partial" | "not_visible" | "unknown";
+  eyeVisible?: "yes" | "no" | "unknown";
+  regionVisible?: "yes" | "no" | "unknown";
   quality: "unreviewed" | "usable" | "blurry";
 };
 export type Dataset = {
@@ -46,8 +54,8 @@ export function coco(data: Dataset) {
   return {
     info: {
       description: "GuacaBook — annotations locales",
-      version: "1.0",
-      extensions: "GuacaBook v1; voir README.md",
+      version: "2.0",
+      extensions: "GuacaBook v2; voir README.md",
     },
     licenses: [
       {
@@ -68,6 +76,13 @@ export function coco(data: Dataset) {
         session_id: p.sessionId || null,
         quality: p.quality,
         original_file_name: p.name,
+        individual_id: p.birdId || null,
+        batch_id: p.batchId || null,
+        viewpoint: p.viewpoint ?? null,
+        body_visibility: p.bodyVisibility ?? null,
+        eye_visible: p.eyeVisible ?? null,
+        periocular_visible: p.regionVisible ?? null,
+        annotation_status: p.completed ? "complete" : "draft",
       },
     })),
     annotations: data.photos
@@ -75,13 +90,14 @@ export function coco(data: Dataset) {
         p.boxes.map((b) => ({
           id: b.id,
           image_id: i + 1,
-          category_id: b.category === "macaw" ? 1 : 2,
+          category_id:
+            b.category === "macaw" ? 1 : b.category === "eye" ? 3 : 2,
           bbox: b.bbox,
           area: b.bbox[2] * b.bbox[3],
           iscrowd: 0,
           guacabook: {
             individual_id: b.birdId || null,
-            side: b.category === "periocular_region" ? b.side : null,
+            side: b.category !== "macaw" ? b.side : null,
           },
         })),
       )
@@ -89,9 +105,10 @@ export function coco(data: Dataset) {
     categories: [
       { id: 1, name: "macaw", supercategory: "animal" },
       { id: 2, name: "periocular_region", supercategory: "animal" },
+      { id: 3, name: "eye", supercategory: "animal" },
     ],
     guacabook: {
-      schema_version: 1,
+      schema_version: 2,
       contributor: data.profile || null,
       individuals: data.birds,
       sessions: [
@@ -100,4 +117,27 @@ export function coco(data: Dataset) {
       crops: [],
     },
   };
+}
+
+export function stepValid(p: Photo, step: number): boolean {
+  const has = (category: Box["category"]) =>
+    p.boxes.some(
+      (b) => b.category === category && b.birdId === (p.birdId || ""),
+    );
+  if (step === 0) return p.quality !== "unreviewed";
+  if (step === 1) return p.viewpoint !== undefined;
+  if (step === 2)
+    return (
+      !!p.bodyVisibility &&
+      (!["full", "partial"].includes(p.bodyVisibility) || has("macaw"))
+    );
+  if (step === 3)
+    return !!p.eyeVisible && (p.eyeVisible !== "yes" || has("eye"));
+  if (step === 4)
+    return (
+      p.eyeVisible !== "yes" ||
+      (!!p.regionVisible &&
+        (p.regionVisible !== "yes" || has("periocular_region")))
+    );
+  return [0, 1, 2, 3, 4].every((s) => stepValid(p, s));
 }
