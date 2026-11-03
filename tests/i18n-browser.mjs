@@ -55,13 +55,11 @@ try {
       .fill("Ara ararauna");
     await button("Créer un ara").click();
     await page.getByLabel(t("Séance de prise de vue")).fill("Jardín / manhã");
-    await page
-      .getByLabel(t("Photos du lot"))
-      .setInputFiles({
-        name: "gauche.png",
-        mimeType: "image/png",
-        buffer: Buffer.from("not-an-image"),
-      });
+    await page.getByLabel(t("Photos du lot")).setInputFiles({
+      name: "gauche.png",
+      mimeType: "image/png",
+      buffer: Buffer.from("not-an-image"),
+    });
     await page
       .getByRole("alert")
       .filter({
@@ -82,13 +80,11 @@ try {
       c.getContext("2d").fillRect(0, 0, 640, 480);
       return c.toDataURL().split(",")[1];
     });
-    await page
-      .getByLabel(t("Photos du lot"))
-      .setInputFiles({
-        name: "left gauche.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(png, "base64"),
-      });
+    await page.getByLabel(t("Photos du lot")).setInputFiles({
+      name: "left gauche.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(png, "base64"),
+    });
     await button("Nette / exploitable").click();
     await next();
     await button("Face").click();

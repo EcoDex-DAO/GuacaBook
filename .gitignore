@@ -3,3 +3,5 @@ node_modules/
 *.tsbuildinfo
 test-results/
 playwright-report/
+.env*
+!.env.example

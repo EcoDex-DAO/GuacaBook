@@ -682,3 +682,44 @@ header > button {
     overflow-wrap: anywhere;
   }
 }
+.accountbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 15px;
+  max-width: 1540px;
+  padding: 12px 4%;
+  margin: auto;
+  flex-wrap: wrap;
+  background: #e7edde;
+  font-size: 12px;
+}
+.accountbar button {
+  font-size: 12px;
+}
+.cloudpanel {
+  margin: 20px 0 30px;
+  background: #edf3e6;
+}
+.cloudpanel p {
+  font-size: 13px;
+}
+.cloudactions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.cloudpanel details {
+  margin-top: 18px;
+}
+.cloudpanel summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: bold;
+}
+.cloudpanel button {
+  font-size: 12px;
+}
+.cloudpanel .photolist li {
+  overflow-wrap: anywhere;
+}

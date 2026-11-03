@@ -18,6 +18,8 @@ import ViewReference from "./components/ViewReference";
 import AnnotationCanvas from "./components/AnnotationCanvas";
 import BirdGlyph from "./components/BirdGlyph";
 import EyeGuide from "./components/EyeGuide";
+import AccountGate, { useAccount } from "./components/AccountGate";
+import CloudPanel from "./components/CloudPanel";
 const uid = () => crypto.randomUUID();
 const stepKeys = [
   "Qualité",
@@ -37,7 +39,16 @@ const titleKeys = [
 ];
 const localDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
-export default function Home() {
+export default function Page() {
+  return (
+    <AccountGate>
+      <Home />
+    </AccountGate>
+  );
+}
+function Home() {
+  const { user } = useAccount();
+  const storageKey = user ? `guacabook-v1:${user.id}` : "guacabook-v1";
   const { t } = useI18n();
   const steps = stepKeys.map((key) => t(key));
   const titles = titleKeys.map((key) => t(key));
@@ -87,7 +98,7 @@ export default function Home() {
       )
     : [];
   useEffect(() => {
-    get<Dataset>("guacabook-v1")
+    get<Dataset>(storageKey)
       .then((d) => {
         if (d) {
           update(d);
@@ -109,7 +120,7 @@ export default function Home() {
     setStatus("Enregistrement…");
     queue.current = queue.current
       .catch(() => {})
-      .then(() => set("guacabook-v1", data));
+      .then(() => set(storageKey, data));
     queue.current
       .then(() => {
         if (live) setStatus("Brouillon enregistré sur cet appareil");
@@ -314,6 +325,19 @@ export default function Home() {
     return (
       <main>
         <LanguagePicker />
+        {ready && user && (
+          <CloudPanel
+            data={data}
+            onLoad={(d) => {
+              update(d);
+              setProfile(d.profile);
+              setLogged(!!d.profile);
+              setBird(d.birds[0]?.id || "");
+              setActive("");
+              setScreen("animals");
+            }}
+          />
+        )}
         <h1>GuacaBook</h1>
         <p role="status">{t(status)}</p>
       </main>
@@ -322,6 +346,19 @@ export default function Home() {
     return (
       <main className="login">
         <LanguagePicker />
+        {ready && user && (
+          <CloudPanel
+            data={data}
+            onLoad={(d) => {
+              update(d);
+              setProfile(d.profile);
+              setLogged(!!d.profile);
+              setBird(d.birds[0]?.id || "");
+              setActive("");
+              setScreen("animals");
+            }}
+          />
+        )}
         <div className="brand">◉ GuacaBook</div>
         <section>
           <span className="eyebrow">{t("BIENVENUE DANS VOTRE CARNET")}</span>
@@ -362,7 +399,9 @@ export default function Home() {
           <p className="small">
             {" "}
             {t(
-              "Profil local mémorisé sur cet appareil. Il ne s’agit pas d’un compte sécurisé. Photos et brouillons restent dans ce navigateur.",
+              user
+                ? "Choisissez un pseudonyme pour votre compte. Vous pourrez aussi charger une collection déjà sauvegardée en ligne."
+                : "Profil local mémorisé sur cet appareil. Il ne s’agit pas d’un compte sécurisé. Photos et brouillons restent dans ce navigateur.",
             )}{" "}
           </p>
         </section>
@@ -371,6 +410,19 @@ export default function Home() {
   return (
     <main>
       <LanguagePicker />
+      {ready && user && (
+        <CloudPanel
+          data={data}
+          onLoad={(d) => {
+            update(d);
+            setProfile(d.profile);
+            setLogged(!!d.profile);
+            setBird(d.birds[0]?.id || "");
+            setActive("");
+            setScreen("animals");
+          }}
+        />
+      )}
       <header>
         <div className="brand">◉ GuacaBook</div>
         <button
@@ -1034,7 +1086,9 @@ export default function Home() {
               <p className="small">
                 {" "}
                 {t(
-                  "Photos et brouillons restent dans ce navigateur. Exportez régulièrement. Les originaux peuvent contenir des métadonnées privées : inspectez-les avant partage. Aucun GPS n’est extrait.",
+                  user
+                    ? "Brouillon local automatique ; sauvegarde en ligne sur demande. Exportez régulièrement. Vérifiez les métadonnées privées des originaux avant envoi ou partage."
+                    : "Photos et brouillons restent dans ce navigateur. Exportez régulièrement. Les originaux peuvent contenir des métadonnées privées : inspectez-les avant partage. Aucun GPS n’est extrait.",
                 )}{" "}
               </p>
             </div>
