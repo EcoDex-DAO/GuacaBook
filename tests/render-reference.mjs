@@ -7,6 +7,7 @@ const browser = await chromium.launch({
 try {
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1100 },
+    locale: "fr-FR",
   });
   await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
   await page.getByLabel("Nom ou pseudonyme").fill("Référentiel");
@@ -18,13 +19,11 @@ try {
     c.height = 100;
     return c.toDataURL().split(",")[1];
   });
-  await page
-    .getByLabel("Photos du lot")
-    .setInputFiles({
-      name: "reference.png",
-      mimeType: "image/png",
-      buffer: Buffer.from(png, "base64"),
-    });
+  await page.getByLabel("Photos du lot").setInputFiles({
+    name: "reference.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(png, "base64"),
+  });
   await page
     .getByRole("button", { name: "Nette / exploitable", exact: true })
     .click();

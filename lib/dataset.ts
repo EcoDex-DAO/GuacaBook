@@ -57,9 +57,9 @@ export function coco(data: Dataset) {
   if (!data.consent) throw new Error("Autorisation requise avant export.");
   return {
     info: {
-      description: "GuacaBook — annotations locales",
+      description: "GuacaBook — local annotations",
       version: "2.0",
-      extensions: "GuacaBook v2; voir README.md",
+      extensions: "GuacaBook v2; see README.en.md and README.md",
     },
     licenses: [
       {

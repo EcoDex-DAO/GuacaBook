@@ -1,5 +1,7 @@
 # GuacaBook
 
+[English documentation](README.en.md) · Interface : français, anglais, espagnol et portugais.
+
 Application locale de collecte photographique d’aras avec un parcours guidé, étape par étape sur tout le lot. Pas d’IA, de collecte GPS, de backend ou de stockage partagé.
 
 ## Démarrer
@@ -68,3 +70,9 @@ Catégories stables : **1 `macaw`**, **2 `periocular_region`**, nouvelle catégo
 Pas de compte sécurisé, stockage partagé, import COCO/ZIP, réidentification ni jumeau numérique. Taille des lots limitée par le quota navigateur et la mémoire pour l’export ZIP. Dessin au pointeur/toucher, sans dessin au clavier pour l’instant. Le référentiel 3D est un schéma procédural, pas encore le modèle de référence final. SeaTurtleID2022 n’est ni téléchargé ni intégré ; vérifier séparément licence et structure avant usage.
 
 Les huit images de `public/reference/` sont générées depuis le modèle procédural de l’application ; après modification du modèle, lancer `node tests/render-reference.mjs` avec un serveur local démarré pour les régénérer. Ce script utilise un contexte de navigateur isolé et aucune photo réelle.
+
+## Langues
+
+Le sélecteur « Language / Langue » reste accessible sur la page d’accueil et dans l’atelier. Détection initiale depuis les préférences du navigateur (variantes comme pt-BR et es-MX comprises), anglais par défaut si aucune langue n’est prise en charge. Le choix manuel est conservé dans `localStorage` sous `guacabook-language`. Un stockage de préférence indisponible n’empêche pas l’utilisation. L’attribut HTML `lang` suit la langue sélectionnée.
+
+Les catalogues sont dans `lib/i18n/`. Les données saisies par les contributeurs, les UUID, les catégories COCO et les valeurs techniques restent inchangés. Le changement de langue ne modifie ni le brouillon, ni les cadres, ni le consentement. La notice du ZIP est en anglais pour l’échange international. Les traductions sont une première version générale ; faire relire la terminologie par des contributeurs natifs avant une campagne à grande échelle.

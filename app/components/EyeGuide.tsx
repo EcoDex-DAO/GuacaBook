@@ -1,3 +1,4 @@
+import { useI18n } from "./I18n";
 import { Box, Photo, requiredSides } from "../../lib/dataset";
 import BirdGlyph from "./BirdGlyph";
 export default function EyeGuide({
@@ -13,29 +14,32 @@ export default function EyeGuide({
   setSide: (s: Box["side"]) => void;
   onChange: (p: Partial<Photo>, remove?: Box["category"][]) => void;
 }) {
+  const { t } = useI18n();
   const category = step === 3 ? "eye" : "periocular_region";
   const visible =
     photo.regionBySide?.[side] ??
     (photo.eyeLayout === "both" ? undefined : photo.regionVisible);
   const layouts = [
-    ["left", "Œil gauche", "left"],
-    ["both", "Deux yeux · face", "front"],
-    ["right", "Œil droit", "right"],
-    ["unknown", "Côté inconnu", "front"],
+    ["left", t("Œil gauche"), "left"],
+    ["both", t("Deux yeux · face"), "front"],
+    ["right", t("Œil droit"), "right"],
+    ["unknown", t("Côté inconnu"), "front"],
   ] as const;
   return (
     <div className="eye-guide">
       {step === 3 && (
         <>
           <p>
-            Choisissez ce que vous voyez. Les côtés sont ceux de l’animal, pas
-            ceux de l’écran.
+            {" "}
+            {t(
+              "Choisissez ce que vous voyez. Les côtés sont ceux de l’animal, pas ceux de l’écran.",
+            )}{" "}
           </p>
           <div className="choices">
             {[
-              ["yes", "Oui, au moins un œil visible"],
-              ["no", "Non, aucun œil visible"],
-              ["unknown", "Je ne sais pas"],
+              ["yes", t("Oui, au moins un œil visible")],
+              ["no", t("Non, aucun œil visible")],
+              ["unknown", t("Je ne sais pas")],
             ].map(([v, l]) => (
               <button
                 key={v}
@@ -72,7 +76,7 @@ export default function EyeGuide({
             ))}
           </div>
           {photo.eyeVisible === "yes" && (
-            <div className="visual-options" aria-label="Yeux visibles">
+            <div className="visual-options" aria-label={t("Yeux visibles")}>
               {layouts.map(([v, l, view]) => (
                 <button
                   key={v}
@@ -101,8 +105,10 @@ export default function EyeGuide({
       {step === 4 && (
         <p>
           {photo.eyeVisible === "yes"
-            ? "Reprenez chaque côté visible pour encadrer l’œil et les motifs autour."
-            : "Étape non applicable : aucun œil confirmé visible."}
+            ? t(
+                "Reprenez chaque côté visible pour encadrer l’œil et les motifs autour.",
+              )
+            : t("Étape non applicable : aucun œil confirmé visible.")}
         </p>
       )}
       {photo.eyeVisible === "yes" &&
@@ -110,7 +116,7 @@ export default function EyeGuide({
           <>
             <div
               className="visual-options target-sides"
-              aria-label="Zone à tracer"
+              aria-label={t("Zone à tracer")}
             >
               {requiredSides(photo).map((s) => {
                 const done = photo.boxes.some(
@@ -137,17 +143,17 @@ export default function EyeGuide({
                     />
                     <span>
                       {s === "left"
-                        ? "Côté gauche"
+                        ? t("Côté gauche")
                         : s === "right"
-                          ? "Côté droit"
-                          : "Côté inconnu"}
+                          ? t("Côté droit")
+                          : t("Côté inconnu")}
                       {done ? " · ✓" : ""}
                     </span>
                     <small>
                       {photo.eyeLayout === "both"
                         ? s === "left"
-                          ? "À droite sur une photo de face"
-                          : "À gauche sur une photo de face"
+                          ? t("À droite sur une photo de face")
+                          : t("À gauche sur une photo de face")
                         : ""}
                     </small>
                   </button>
@@ -155,23 +161,28 @@ export default function EyeGuide({
               })}
             </div>
             <p className="drawhint">
-              {step === 3 ? "Tracez l’œil" : "Tracez la région périoculaire"}{" "}
-              {side === "left"
-                ? "gauche"
-                : side === "right"
-                  ? "droite"
-                  : "de côté inconnu"}{" "}
-              de l’animal.
+              {t("Tracez {region} : {side}.", {
+                region: t(step === 3 ? "Œil" : "Région périoculaire"),
+                side: t(
+                  side === "left"
+                    ? "Côté gauche"
+                    : side === "right"
+                      ? "Côté droit"
+                      : "Côté inconnu",
+                ),
+              })}{" "}
               {photo.eyeLayout === "both"
-                ? " Puis sélectionnez l’autre côté : chaque côté a son propre cadre."
+                ? t(
+                    "Puis sélectionnez l’autre côté : chaque côté a son propre cadre.",
+                  )
                 : ""}
             </p>
             {step === 4 && (
               <div className="choices">
                 {[
-                  ["yes", "La région de ce côté est visible"],
-                  ["no", "La région de ce côté est masquée / coupée"],
-                  ["unknown", "Je ne sais pas pour ce côté"],
+                  ["yes", t("La région de ce côté est visible")],
+                  ["no", t("La région de ce côté est masquée / coupée")],
+                  ["unknown", t("Je ne sais pas pour ce côté")],
                 ].map(([v, l]) => (
                   <button
                     key={v}
@@ -225,12 +236,14 @@ export default function EyeGuide({
                 })
               }
             >
-              Réinitialiser ce côté uniquement
+              {" "}
+              {t("Réinitialiser ce côté uniquement")}{" "}
             </button>
             <p className="small">
-              Sur une vue de face non retournée, la gauche de l’animal est à
-              droite de l’image. Si la photo est en miroir ou le côté incertain,
-              revenez aux yeux et choisissez « côté inconnu ».
+              {" "}
+              {t(
+                "Sur une vue de face non retournée, la gauche de l’animal est à droite de l’image. Si la photo est en miroir ou le côté incertain, revenez aux yeux et choisissez « côté inconnu ».",
+              )}{" "}
             </p>
           </>
         )}

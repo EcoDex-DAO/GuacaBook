@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "./I18n";
 import { useRef, useState, useEffect } from "react";
 import { Box, Photo, makeBox } from "../../lib/dataset";
 type Point = { x: number; y: number };
@@ -19,6 +20,7 @@ export default function AnnotationCanvas({
   onAdd: (bbox: Box["bbox"]) => void;
   onReset: () => void;
 }) {
+  const { t } = useI18n();
   const svg = useRef<SVGSVGElement>(null),
     pointers = useRef(new Map<number, Point>()),
     gesture = useRef<{
@@ -90,15 +92,15 @@ export default function AnnotationCanvas({
     h = photo.height / view.zoom;
   return (
     <>
-      <div className="canvas-tools" aria-label="Outils photo">
-        <button aria-label="Dézoomer" onClick={() => zoomBy(1 / 1.4)}>
+      <div className="canvas-tools" aria-label={t("Outils photo")}>
+        <button aria-label={t("Dézoomer")} onClick={() => zoomBy(1 / 1.4)}>
           −
         </button>
         <span>{Math.round(view.zoom * 100)} %</span>
-        <button aria-label="Zoomer" onClick={() => zoomBy(1.4)}>
+        <button aria-label={t("Zoomer")} onClick={() => zoomBy(1.4)}>
           +
         </button>
-        <button onClick={fit}>Ajuster à l’écran</button>
+        <button onClick={fit}>{t("Ajuster à l’écran")}</button>
         <button
           aria-pressed={mode === "pan"}
           onClick={() => {
@@ -106,7 +108,8 @@ export default function AnnotationCanvas({
             setDraft(null);
           }}
         >
-          Déplacer l’image
+          {" "}
+          {t("Déplacer l’image")}{" "}
         </button>
         {category && (
           <button
@@ -115,7 +118,8 @@ export default function AnnotationCanvas({
               onReset();
             }}
           >
-            Réinitialiser les cadres de l’étape
+            {" "}
+            {t("Réinitialiser les cadres de l’étape")}{" "}
           </button>
         )}
       </div>
@@ -124,7 +128,7 @@ export default function AnnotationCanvas({
         className={`canvas zoom-canvas ${mode === "pan" ? "panning" : ""}`}
         viewBox={`${view.cx - w / 2} ${view.cy - h / 2} ${w} ${h}`}
         role="img"
-        aria-label="Photo à annoter par glisser-déposer"
+        aria-label={t("Photo à annoter par glisser-déposer")}
         onPointerDown={(e) => {
           if (e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -250,9 +254,10 @@ export default function AnnotationCanvas({
           })()}
       </svg>
       <p className="small">
-        Molette ou pincement pour zoomer. Activez « Déplacer l’image » pour
-        explorer, puis désactivez-le pour tracer. « Ajuster à l’écran » restaure
-        la vue entière.
+        {" "}
+        {t(
+          "Molette ou pincement pour zoomer. Activez « Déplacer l’image » pour explorer, puis désactivez-le pour tracer. « Ajuster à l’écran » restaure la vue entière.",
+        )}{" "}
       </p>
     </>
   );

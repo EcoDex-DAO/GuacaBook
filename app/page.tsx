@@ -1,4 +1,5 @@
 "use client";
+import { useI18n, LanguagePicker } from "./components/I18n";
 import { useEffect, useRef, useState } from "react";
 import { get, set } from "idb-keyval";
 import exifr from "exifr";
@@ -18,7 +19,7 @@ import AnnotationCanvas from "./components/AnnotationCanvas";
 import BirdGlyph from "./components/BirdGlyph";
 import EyeGuide from "./components/EyeGuide";
 const uid = () => crypto.randomUUID();
-const steps = [
+const stepKeys = [
   "Qualité",
   "Point de vue",
   "Corps",
@@ -26,7 +27,7 @@ const steps = [
   "Région périoculaire",
   "Validation",
 ];
-const titles = [
+const titleKeys = [
   "La photo est-elle exploitable ?",
   "D’où a été prise cette photo ?",
   "L’ara est-il entièrement visible ?",
@@ -37,6 +38,9 @@ const titles = [
 const localDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}T${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
 export default function Home() {
+  const { t } = useI18n();
+  const steps = stepKeys.map((key) => t(key));
+  const titles = titleKeys.map((key) => t(key));
   const [data, update] = useState<Dataset>(emptyDataset),
     [ready, setReady] = useState(false),
     [status, setStatus] = useState("Chargement du brouillon…"),
@@ -53,6 +57,7 @@ export default function Home() {
     [url, setUrl] = useState(""),
     [side, setSide] = useState<Box["side"]>("unknown"),
     [message, setMessage] = useState("");
+  const [failedFiles, setFailedFiles] = useState("");
   const queue = useRef(Promise.resolve());
   const photo = data.photos.find((p) => p.id === active);
   const batchKey = photo
@@ -201,8 +206,9 @@ export default function Home() {
       }
       if (failed.length)
         setMessage(
-          `Fichiers non pris en charge : ${failed.join(", ")}. Convertissez les HEIC/RAW en JPEG ou PNG.`,
+          "Fichiers non pris en charge : {files}. Convertissez les HEIC/RAW en JPEG ou PNG.",
         );
+      setFailedFiles(failed.join(", "));
     } finally {
       setBusy(false);
     }
@@ -214,7 +220,7 @@ export default function Home() {
       zip.file("annotations.json", JSON.stringify(coco(data), null, 2));
       zip.file(
         "README.txt",
-        "GuacaBook v2 — CC BY 4.0\nLes originaux peuvent contenir des métadonnées privées. Coordonnées après orientation EXIF. Catégories : macaw (1), periocular_region (2), eye (3). images[].guacabook contient individual_id, batch_id, viewpoint (azimuth: avant 0°, droite 90°, dos 180°, gauche 270°; elevation: dessus +30°, hauteur 0°, dessous -30°), body_visibility, eye_visible, periocular_visible et annotation_status. Point de vue null = inconnu/non renseigné. Consultez README.md du projet. Aucun recadrage généré.",
+        "GuacaBook v2 — CC BY 4.0\nOriginal files may contain private metadata: inspect them before sharing. Boxes use original image pixels after EXIF orientation. Categories: macaw (1), periocular_region (2), eye (3). images[].guacabook includes individual_id, batch_id, session_id, viewpoint (azimuth: front 0, anatomical right 90, back 180, anatomical left 270 degrees; elevation: above +30, eye level 0, below -30), eye_layout (left/right/both/unknown), periocular_by_side and annotation_status (draft/complete). Unknown values are not inferred. No crops are generated. See the repository README.en.md and README.md for details.\n",
       );
       for (const p of data.photos) zip.file(`images/${p.id}-${p.name}`, p.blob);
       const blob = await zip.generateAsync({ type: "blob" });
@@ -307,24 +313,27 @@ export default function Home() {
   if (!ready)
     return (
       <main>
+        <LanguagePicker />
         <h1>GuacaBook</h1>
-        <p role="status">{status}</p>
+        <p role="status">{t(status)}</p>
       </main>
     );
   if (!logged)
     return (
       <main className="login">
+        <LanguagePicker />
         <div className="brand">◉ GuacaBook</div>
         <section>
-          <span className="eyebrow">BIENVENUE DANS VOTRE CARNET</span>
+          <span className="eyebrow">{t("BIENVENUE DANS VOTRE CARNET")}</span>
           <h1>
-            Un regard.
-            <br />
-            Une identité.
+            {" "}
+            {t("Un regard.")} <br /> {t("Une identité.")}{" "}
           </h1>
           <p>
-            Créez la collection photographique de vos aras, une photo après
-            l’autre.
+            {" "}
+            {t(
+              "Créez la collection photographique de vos aras, une photo après l’autre.",
+            )}{" "}
           </p>
           <form
             onSubmit={(e) => {
@@ -335,42 +344,47 @@ export default function Home() {
             }}
           >
             <label>
-              Nom ou pseudonyme
+              {" "}
+              {t("Nom ou pseudonyme")}{" "}
               <input
                 autoComplete="nickname"
                 required
                 value={profile}
                 onChange={(e) => setProfile(e.target.value)}
-                placeholder="Comment vous appeler ?"
+                placeholder={t("Comment vous appeler ?")}
               />
             </label>
             <button className="primary" type="submit">
-              Entrer dans GuacaBook →
+              {" "}
+              {t("Entrer dans GuacaBook →")}{" "}
             </button>
           </form>
           <p className="small">
-            Profil local mémorisé sur cet appareil. Il ne s’agit pas d’un compte
-            sécurisé. Photos et brouillons restent dans ce navigateur.
+            {" "}
+            {t(
+              "Profil local mémorisé sur cet appareil. Il ne s’agit pas d’un compte sécurisé. Photos et brouillons restent dans ce navigateur.",
+            )}{" "}
           </p>
         </section>
       </main>
     );
   return (
     <main>
+      <LanguagePicker />
       <header>
         <div className="brand">◉ GuacaBook</div>
         <button
           onClick={() => setLogged(false)}
-          aria-label="Modifier mon profil"
+          aria-label={t("Modifier mon profil")}
         >
-          {data.profile} · Mon profil
+          {data.profile} {t("· Mon profil")}{" "}
         </button>
       </header>
-      <nav className="tabs" aria-label="Sections">
+      <nav className="tabs" aria-label={t("Sections")}>
         {[
-          ["dataset", "Dataset"],
-          ["identification", "Identification"],
-          ["twin", "Jumeau numérique"],
+          ["dataset", t("Dataset")],
+          ["identification", t("Identification")],
+          ["twin", t("Jumeau numérique")],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -378,51 +392,66 @@ export default function Home() {
             onClick={() => setTab(id)}
           >
             {label}
-            {id !== "dataset" && <small>À venir</small>}
+            {id !== "dataset" && <small>{t("À venir")}</small>}
           </button>
         ))}
       </nav>
       {tab !== "dataset" ? (
         <section className="placeholder">
-          <span className="eyebrow">PROCHAINEMENT</span>
-          <h1>{tab === "twin" ? "Jumeau numérique" : "Identification"}</h1>
+          <span className="eyebrow">{t("PROCHAINEMENT")}</span>
+          <h1>
+            {tab === "twin" ? t("Jumeau numérique") : t("Identification")}
+          </h1>
           <p>
             {tab === "twin"
-              ? "Un espace dédié à la représentation de votre animal."
-              : "Un espace dédié à l’identification des animaux."}{" "}
-            Ce module n’est pas encore disponible.
+              ? t("Un espace dédié à la représentation de votre animal.")
+              : t("Un espace dédié à l’identification des animaux.")}{" "}
+            {t("Ce module n’est pas encore disponible.")}{" "}
           </p>
-          <button onClick={() => setTab("dataset")}>Revenir au dataset</button>
+          <button onClick={() => setTab("dataset")}>
+            {t("Revenir au dataset")}
+          </button>
         </section>
       ) : (
         <>
           <div className="pagehead">
             <div>
-              <span className="eyebrow">VOTRE COLLECTION SCIENTIFIQUE</span>
+              <span className="eyebrow">
+                {t("VOTRE COLLECTION SCIENTIFIQUE")}
+              </span>
               <h1>
                 {screen === "animals"
-                  ? "Commençons par vos aras."
+                  ? t("Commençons par vos aras.")
                   : screen === "batch"
-                    ? `Les photos de ${selected?.name || "votre ara"}.`
-                    : "Une tâche, tout le lot."}
+                    ? t("Les photos de {name}.", {
+                        name: selected?.name || t("votre ara"),
+                      })
+                    : t("Une tâche, tout le lot.")}
               </h1>
               <p>
                 {screen === "animals"
-                  ? "Créez vos animaux, puis choisissez celui que vous souhaitez photographier."
+                  ? t(
+                      "Créez vos animaux, puis choisissez celui que vous souhaitez photographier.",
+                    )
                   : screen === "batch"
-                    ? "Déposez un lot pour cet animal. Vous réaliserez la même tâche sur toutes les photos avant de passer à la suivante."
-                    : "Une tâche à la fois : terminez cette étape sur tout le lot avant de changer de tâche."}
+                    ? t(
+                        "Déposez un lot pour cet animal. Vous réaliserez la même tâche sur toutes les photos avant de passer à la suivante.",
+                      )
+                    : t(
+                        "Une tâche à la fois : terminez cette étape sur tout le lot avant de changer de tâche.",
+                      )}
               </p>
             </div>
             {screen !== "animals" && (
               <button onClick={() => setScreen("animals")}>
-                ← Mes animaux
+                {" "}
+                {t("← Mes animaux")}{" "}
               </button>
             )}
           </div>
           {message && (
             <p role="alert" className="notice">
-              {message}
+              {t(message, { files: failedFiles })}
             </p>
           )}
           {screen === "animals" && (
@@ -430,8 +459,8 @@ export default function Home() {
               {data.birds.map((b) => (
                 <section className="animal" key={b.id}>
                   <span className="avatar">↗</span>
-                  <h2>{b.name || "Ara sans nom"}</h2>
-                  <p>{b.species || "Espèce inconnue"}</p>
+                  <h2>{b.name || t("Ara sans nom")}</h2>
+                  <p>{b.species || t("Espèce inconnue")}</p>
                   <p className="small">
                     {
                       data.photos.filter(
@@ -440,15 +469,16 @@ export default function Home() {
                           p.boxes.some((x) => x.birdId === b.id),
                       ).length
                     }{" "}
-                    photo(s) · Identifiant {b.id.slice(0, 8)}
+                    {t("photo(s) · Identifiant")} {b.id.slice(0, 8)}
                   </p>
                   <button className="primary" onClick={() => choose(b.id)}>
-                    Choisir cet animal →
+                    {" "}
+                    {t("Choisir cet animal →")}{" "}
                   </button>
                 </section>
               ))}
               <section>
-                <h2>+ Créer un animal</h2>
+                <h2>{t("+ Créer un animal")}</h2>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -464,22 +494,24 @@ export default function Home() {
                   }}
                 >
                   <label>
-                    Nom (facultatif)
+                    {" "}
+                    {t("Nom (facultatif)")}{" "}
                     <input
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Ex. Kiwi"
+                      placeholder={t("Ex. Kiwi")}
                     />
                   </label>
                   <label>
-                    Espèce (laisser vide si inconnue)
+                    {" "}
+                    {t("Espèce (laisser vide si inconnue)")}{" "}
                     <input
                       value={species}
                       onChange={(e) => setSpecies(e.target.value)}
-                      placeholder="Ex. Ara ararauna"
+                      placeholder={t("Ex. Ara ararauna")}
                     />
                   </label>
-                  <button type="submit">Créer un ara</button>
+                  <button type="submit">{t("Créer un ara")}</button>
                 </form>
               </section>
             </div>
@@ -488,23 +520,26 @@ export default function Home() {
             <>
               <div className="batchgrid">
                 <section>
-                  <h2>1. Déposer un lot</h2>
+                  <h2>{t("1. Déposer un lot")}</h2>
                   <p>
-                    Animal sélectionné :{" "}
-                    <strong>{selected?.name || "Ara sans nom"}</strong>
+                    {" "}
+                    {t("Animal sélectionné :")}{" "}
+                    <strong>{selected?.name || t("Ara sans nom")}</strong>
                   </p>
                   <label>
-                    Séance de prise de vue
+                    {" "}
+                    {t("Séance de prise de vue")}{" "}
                     <input
                       value={session}
                       onChange={(e) => setSession(e.target.value)}
-                      placeholder="Ex. Jardin — matin du 2 novembre"
+                      placeholder={t("Ex. Jardin — matin du 2 novembre")}
                     />
                   </label>
                   <label className="upload">
-                    + Choisir les photos du lot
+                    {" "}
+                    {t("+ Choisir les photos du lot")}{" "}
                     <input
-                      aria-label="Photos du lot"
+                      aria-label={t("Photos du lot")}
                       type="file"
                       accept="image/*"
                       multiple
@@ -516,33 +551,37 @@ export default function Home() {
                     />
                   </label>
                   <p className="small">
-                    JPEG, PNG et formats décodables par votre navigateur.
-                    Choisissez une séance cohérente. Chaque import constitue un
-                    lot distinct.
+                    {" "}
+                    {t(
+                      "JPEG, PNG et formats décodables par votre navigateur. Choisissez une séance cohérente. Chaque import constitue un lot distinct.",
+                    )}{" "}
                   </p>
                 </section>
                 <section>
-                  <h2>2. Une même tâche sur tout le lot</h2>
+                  <h2>{t("2. Une même tâche sur tout le lot")}</h2>
                   <ol>
                     {steps.map((s) => (
                       <li key={s}>{s}</li>
                     ))}
                   </ol>
                   <p className="small">
-                    Collectez les deux côtés, à différentes dates et heures. La
-                    fiabilité de l’identification reste à évaluer.
+                    {" "}
+                    {t(
+                      "Collectez les deux côtés, à différentes dates et heures. La fiabilité de l’identification reste à évaluer.",
+                    )}{" "}
                   </p>
                 </section>
               </div>
               <section className="collection">
                 <h2>
-                  Collection · {photos.filter((p) => p.completed).length}/
-                  {photos.length} photos validées
+                  {" "}
+                  {t("Collection ·")} {photos.filter((p) => p.completed).length}
+                  /{photos.length} {t("photos validées")}{" "}
                 </h2>
                 <div className="coverage">
                   {(["left", "right"] as const).map((side) => (
                     <span key={side}>
-                      {side === "left" ? "Gauche" : "Droite"} :{" "}
+                      {side === "left" ? t("Gauche") : t("Droite")} :{" "}
                       {
                         photos.filter((p) =>
                           p.boxes.some(
@@ -553,7 +592,7 @@ export default function Home() {
                           ),
                         ).length
                       }{" "}
-                      photo(s) ·{" "}
+                      {t("photo(s) ·")}{" "}
                       {
                         new Set(
                           photos
@@ -569,12 +608,12 @@ export default function Home() {
                             .filter(Boolean),
                         ).size
                       }{" "}
-                      séance(s)
+                      {t("séance(s)")}{" "}
                     </span>
                   ))}
                 </div>
                 {!photos.length ? (
-                  <p>Aucune photo pour le moment.</p>
+                  <p>{t("Aucune photo pour le moment.")}</p>
                 ) : (
                   <ul className="photolist">
                     {photos.map((p) => (
@@ -582,14 +621,24 @@ export default function Home() {
                         <div>
                           <strong>{p.name}</strong>
                           <p className="small">
-                            {p.sessionId || "Séance non renseignée"} ·{" "}
+                            {p.sessionId || t("Séance non renseignée")} ·{" "}
                             {p.completed
-                              ? "Validée"
-                              : `Brouillon · ${steps[data.batchStages?.[p.batchId || `${p.birdId || bird}:${p.sessionId}`] ?? p.workflowStep ?? 0]}`}
+                              ? t("Validée")
+                              : t("Brouillon · {step}", {
+                                  step: steps[
+                                    data.batchStages?.[
+                                      p.batchId ||
+                                        `${p.birdId || bird}:${p.sessionId}`
+                                    ] ??
+                                      p.workflowStep ??
+                                      0
+                                  ],
+                                })}
                           </p>
                         </div>
                         <button onClick={() => openPhoto(p)}>
-                          Reprendre →
+                          {" "}
+                          {t("Reprendre →")}{" "}
                         </button>
                       </li>
                     ))}
@@ -602,15 +651,16 @@ export default function Home() {
             <>
               <div className="lotbar">
                 <button onClick={() => setScreen("batch")}>
-                  ← Retour au lot
+                  {" "}
+                  {t("← Retour au lot")}{" "}
                 </button>
                 <span>
-                  {selected?.name || "Ara"} · Photo{" "}
+                  {selected?.name || t("Ara")} {t("· Photo")}{" "}
                   {batch.findIndex((p) => p.id === photo.id) + 1}/{batch.length}{" "}
                   · {photo.name}
                 </span>
                 <select
-                  aria-label="Choisir une photo du lot"
+                  aria-label={t("Choisir une photo du lot")}
                   value={photo.id}
                   onChange={(e) => {
                     const p = batch.find((p) => p.id === e.target.value);
@@ -625,7 +675,7 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-              <nav className="steps" aria-label="Étapes d’annotation">
+              <nav className="steps" aria-label={t("Étapes d’annotation")}>
                 {steps.map((label, i) => (
                   <button
                     key={label}
@@ -678,23 +728,26 @@ export default function Home() {
                           <span>
                             {i + 1}.{" "}
                             {b.category === "macaw"
-                              ? "Corps"
+                              ? t("Corps")
                               : b.category === "eye"
-                                ? "Œil"
-                                : "Région périoculaire"}
+                                ? t("Œil")
+                                : t("Région périoculaire")}
                             {b.category !== "macaw"
-                              ? ` · ${b.side === "left" ? "gauche" : b.side === "right" ? "droite" : "côté inconnu"}`
+                              ? ` · ${b.side === "left" ? t("gauche") : b.side === "right" ? t("droite") : t("côté inconnu")}`
                               : ""}
                           </span>
                           <button
-                            aria-label={`Supprimer l’annotation ${i + 1}`}
+                            aria-label={t("Supprimer l’annotation {number}", {
+                              number: i + 1,
+                            })}
                             onClick={() =>
                               patchPhoto({
                                 boxes: photo.boxes.filter((x) => x.id !== b.id),
                               })
                             }
                           >
-                            Supprimer
+                            {" "}
+                            {t("Supprimer")}{" "}
                           </button>
                         </li>
                       ))}
@@ -703,7 +756,8 @@ export default function Home() {
                 </section>
                 <section className="question">
                   <span className="eyebrow">
-                    ÉTAPE {step + 1} / 6 ·{" "}
+                    {" "}
+                    {t("ÉTAPE")} {step + 1} / 6 ·{" "}
                     {
                       batch.filter(
                         (p) =>
@@ -711,19 +765,21 @@ export default function Home() {
                           stepValid(p, step),
                       ).length
                     }
-                    /{batch.length} PHOTOS TRAITÉES
+                    /{batch.length} {t("PHOTOS TRAITÉES")}{" "}
                   </span>
                   <h2>{titles[step]}</h2>
                   {step === 0 && (
                     <>
                       <p>
-                        Vérifiez la netteté des détails. Une photo floue peut
-                        être conservée, mais signalez-la.
+                        {" "}
+                        {t(
+                          "Vérifiez la netteté des détails. Une photo floue peut être conservée, mais signalez-la.",
+                        )}{" "}
                       </p>
                       <div className="choices">
                         {[
-                          ["usable", "Nette / exploitable"],
-                          ["blurry", "Floue / à refaire"],
+                          ["usable", t("Nette / exploitable")],
+                          ["blurry", t("Floue / à refaire")],
                         ].map(([v, l]) => (
                           <button
                             key={v}
@@ -751,7 +807,8 @@ export default function Home() {
                         ))}
                       </div>
                       <label>
-                        Date et heure (sans fuseau)
+                        {" "}
+                        {t("Date et heure (sans fuseau)")}{" "}
                         <input
                           type="datetime-local"
                           step="1"
@@ -762,10 +819,14 @@ export default function Home() {
                         />
                       </label>
                       <p className="small">
-                        Date EXIF si disponible. Laissez vide si inconnue.
+                        {" "}
+                        {t(
+                          "Date EXIF si disponible. Laissez vide si inconnue.",
+                        )}{" "}
                       </p>
                       <label>
-                        Séance
+                        {" "}
+                        {t("Séance")}{" "}
                         <input
                           value={photo.sessionId}
                           onChange={(e) =>
@@ -784,15 +845,17 @@ export default function Home() {
                   {step === 2 && (
                     <>
                       <p>
-                        Indiquez si l’animal est complet, puis encadrez tout le
-                        corps visible, queue comprise si elle apparaît.
+                        {" "}
+                        {t(
+                          "Indiquez si l’animal est complet, puis encadrez tout le corps visible, queue comprise si elle apparaît.",
+                        )}{" "}
                       </p>
                       <div className="choices">
                         {[
-                          ["full", "Oui, l’ara est entier"],
-                          ["partial", "Non, une partie est hors cadre"],
-                          ["not_visible", "Le corps n’est pas visible"],
-                          ["unknown", "Je ne sais pas"],
+                          ["full", t("Oui, l’ara est entier")],
+                          ["partial", t("Non, une partie est hors cadre")],
+                          ["not_visible", t("Le corps n’est pas visible")],
+                          ["unknown", t("Je ne sais pas")],
                         ].map(([v, l]) => (
                           <button
                             key={v}
@@ -828,8 +891,10 @@ export default function Home() {
                       </div>
                       {canDraw && (
                         <p className="drawhint">
-                          Tracez maintenant la boîte du corps visible sur la
-                          photo.
+                          {" "}
+                          {t(
+                            "Tracez maintenant la boîte du corps visible sur la photo.",
+                          )}{" "}
                         </p>
                       )}
                     </>
@@ -846,8 +911,10 @@ export default function Home() {
                   {step === 5 && (
                     <>
                       <p>
-                        Validez cette photo, puis la suivante du lot. Chaque
-                        étape a été réalisée en série sur toutes les photos.
+                        {" "}
+                        {t(
+                          "Validez cette photo, puis la suivante du lot. Chaque étape a été réalisée en série sur toutes les photos.",
+                        )}{" "}
                       </p>
                       <ul className="review">
                         {steps.slice(0, 5).map((s, i) => (
@@ -855,16 +922,17 @@ export default function Home() {
                             <span>{s}</span>
                             <button onClick={() => setStage(i)}>
                               {stepValid(photo, i)
-                                ? "✓ Vérifier"
-                                : "À compléter →"}
+                                ? t("✓ Vérifier")
+                                : t("À compléter →")}
                             </button>
                           </li>
                         ))}
                       </ul>
                       <p className="small">
-                        Le point de vue et la latéralité sont des déclarations
-                        du contributeur. Aucune information inconnue n’est
-                        déduite.
+                        {" "}
+                        {t(
+                          "Le point de vue et la latéralité sont des déclarations du contributeur. Aucune information inconnue n’est déduite.",
+                        )}{" "}
                       </p>
                     </>
                   )}
@@ -873,7 +941,8 @@ export default function Home() {
                       disabled={step === 0}
                       onClick={() => setStage(Math.max(0, step - 1))}
                     >
-                      Précédent
+                      {" "}
+                      {t("Précédent")}{" "}
                     </button>
                     <button
                       className="primary"
@@ -881,12 +950,13 @@ export default function Home() {
                       onClick={advance}
                     >
                       {step === 5
-                        ? "Valider cette photo →"
-                        : "Enregistrer et continuer →"}
+                        ? t("Valider cette photo →")
+                        : t("Enregistrer et continuer →")}
                     </button>
                   </div>
                   <button className="quiet" onClick={() => setScreen("batch")}>
-                    Quitter et reprendre plus tard
+                    {" "}
+                    {t("Quitter et reprendre plus tard")}{" "}
                   </button>
                 </section>
               </div>
@@ -895,11 +965,14 @@ export default function Home() {
           {data.photos.some((p) => !p.birdId) && (
             <details className="legacy">
               <summary>
-                Photos de la version précédente sans animal de lot
+                {" "}
+                {t("Photos de la version précédente sans animal de lot")}{" "}
               </summary>
               <p>
-                Les anciens brouillons sont conservés. Choisissez un animal
-                avant de reprendre.
+                {" "}
+                {t(
+                  "Les anciens brouillons sont conservés. Choisissez un animal avant de reprendre.",
+                )}{" "}
               </p>
               {data.photos
                 .filter((p) => !p.birdId)
@@ -919,7 +992,8 @@ export default function Home() {
                         setScreen("annotate");
                       }}
                     >
-                      Associer à l’animal sélectionné
+                      {" "}
+                      {t("Associer à l’animal sélectionné")}{" "}
                     </button>
                   </div>
                 ))}
@@ -927,11 +1001,13 @@ export default function Home() {
           )}
           <footer>
             <div>
-              <h2>Votre dataset, prêt à exporter</h2>
+              <h2>{t("Votre dataset, prêt à exporter")}</h2>
               <p>
-                {data.photos.length} photo(s) ·{" "}
-                {data.photos.filter((p) => p.completed).length} validée(s).
-                L’export inclut aussi les brouillons, identifiés comme tels.
+                {data.photos.length} {t("photo(s) ·")}{" "}
+                {data.photos.filter((p) => p.completed).length}{" "}
+                {t(
+                  "validée(s). L’export inclut aussi les brouillons, identifiés comme tels.",
+                )}{" "}
               </p>
               <label className="consent">
                 <input
@@ -940,22 +1016,26 @@ export default function Home() {
                   onChange={(e) =>
                     update({ ...data, consent: e.target.checked })
                   }
-                />
-                Je dispose des droits nécessaires et j’autorise l’utilisation de
-                ces photos sous licence{" "}
+                />{" "}
+                {t(
+                  "Je dispose des droits nécessaires et j’autorise l’utilisation de ces photos sous licence",
+                )}{" "}
                 <a
                   href="https://creativecommons.org/licenses/by/4.0/"
                   target="_blank"
                   rel="noreferrer"
                 >
                   CC BY 4.0
-                </a>
-                , redistribution et usage commercial avec attribution inclus.
+                </a>{" "}
+                {t(
+                  ", redistribution et usage commercial avec attribution inclus.",
+                )}{" "}
               </label>
               <p className="small">
-                Photos et brouillons restent dans ce navigateur. Exportez
-                régulièrement. Les originaux peuvent contenir des métadonnées
-                privées : inspectez-les avant partage. Aucun GPS n’est extrait.
+                {" "}
+                {t(
+                  "Photos et brouillons restent dans ce navigateur. Exportez régulièrement. Les originaux peuvent contenir des métadonnées privées : inspectez-les avant partage. Aucun GPS n’est extrait.",
+                )}{" "}
               </p>
             </div>
             <button
@@ -963,13 +1043,13 @@ export default function Home() {
               disabled={!data.consent || !data.photos.length || busy}
               onClick={() => void download()}
             >
-              {busy ? "Traitement…" : "Exporter le dataset ↗"}
+              {busy ? t("Traitement…") : t("Exporter le dataset ↗")}
             </button>
           </footer>
         </>
       )}
       <p className="savestatus" role="status">
-        {status}
+        {t(status)}
       </p>
     </main>
   );

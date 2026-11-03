@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "./I18n";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
@@ -9,6 +10,7 @@ export default function ViewReference({
   value: { azimuth: number; elevation: number } | null | undefined;
   onChange: (v: { azimuth: number; elevation: number } | null) => void;
 }) {
+  const { t } = useI18n();
   const host = useRef<HTMLDivElement>(null),
     [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -101,32 +103,37 @@ export default function ViewReference({
     };
   }, [value?.azimuth, value?.elevation]);
   const angles = [
-    ["Face", 0],
-    ["Trois-quarts droit", 45],
-    ["Profil droit", 90],
-    ["Arrière droit", 135],
-    ["Dos", 180],
-    ["Arrière gauche", 225],
-    ["Profil gauche", 270],
-    ["Trois-quarts gauche", 315],
+    [t("Face"), 0],
+    [t("Trois-quarts droit"), 45],
+    [t("Profil droit"), 90],
+    [t("Arrière droit"), 135],
+    [t("Dos"), 180],
+    [t("Arrière gauche"), 225],
+    [t("Profil gauche"), 270],
+    [t("Trois-quarts gauche"), 315],
   ] as const;
   return (
     <div className="reference">
       <div
         ref={host}
         role="img"
-        aria-label="Ara 3D cadré comme sur une photo selon l’orientation choisie"
+        aria-label={t(
+          "Ara 3D cadré comme sur une photo selon l’orientation choisie",
+        )}
       />
       {failed && (
         <p>
-          La 3D n’est pas disponible sur ce navigateur. Les boutons restent
-          utilisables : « droit » et « gauche » désignent les côtés de l’animal.
+          {" "}
+          {t(
+            "La 3D n’est pas disponible sur ce navigateur. Les boutons restent utilisables : « droit » et « gauche » désignent les côtés de l’animal.",
+          )}{" "}
         </p>
       )}
       <p className="small">
-        Comparez la silhouette à votre photo : le modèle est cadré depuis le
-        point de vue choisi. Les côtés sont anatomiques. Modèle schématique
-        provisoire.
+        {" "}
+        {t(
+          "Comparez la silhouette à votre photo : le modèle est cadré depuis le point de vue choisi. Les côtés sont anatomiques. Modèle schématique provisoire.",
+        )}{" "}
       </p>
       <div className="angles">
         {angles.map(([label, a]) => (
@@ -144,7 +151,8 @@ export default function ViewReference({
         ))}
       </div>
       <label>
-        Hauteur de prise de vue
+        {" "}
+        {t("Hauteur de prise de vue")}{" "}
         <select
           value={value?.elevation ?? 0}
           disabled={!value}
@@ -152,9 +160,9 @@ export default function ViewReference({
             value && onChange({ ...value, elevation: Number(e.target.value) })
           }
         >
-          <option value={0}>À hauteur de l’ara</option>
-          <option value={30}>Vue de dessus (+30°)</option>
-          <option value={-30}>Vue de dessous (−30°)</option>
+          <option value={0}>{t("À hauteur de l’ara")}</option>
+          <option value={30}>{t("Vue de dessus (+30°)")}</option>
+          <option value={-30}>{t("Vue de dessous (−30°)")}</option>
         </select>
       </label>
       <button
@@ -162,7 +170,8 @@ export default function ViewReference({
         aria-pressed={value === null}
         onClick={() => onChange(null)}
       >
-        Point de vue inconnu
+        {" "}
+        {t("Point de vue inconnu")}{" "}
       </button>
     </div>
   );
