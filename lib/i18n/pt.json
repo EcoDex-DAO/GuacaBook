@@ -325,5 +325,6 @@
   "Modifier": "Editar",
   "Supprimer ce type non attribué ?": "Excluir este tipo de conta não atribuído?",
   "Envoyer l’invitation par e-mail": "Enviar convite por e-mail",
-  "Invitation envoyée par e-mail.": "Convite enviado por e-mail."
+  "Invitation envoyée par e-mail.": "Convite enviado por e-mail.",
+  "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.": "Beta: até 100 fotos por conta, 15 MB por foto, JPEG / PNG / WebP."
 }

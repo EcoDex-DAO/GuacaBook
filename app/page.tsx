@@ -17,7 +17,7 @@ import AnnotationCanvas from "./components/AnnotationCanvas";
 import BirdGlyph from "./components/BirdGlyph";
 import EyeGuide from "./components/EyeGuide";
 import AccountGate, { useAccount } from "./components/AccountGate";
-import CloudPanel from "./components/CloudPanel";
+import CloudPanel, { CloudActions } from "./components/CloudPanel";
 const uid = () => crypto.randomUUID();
 const stepKeys = [
   "Qualité",
@@ -310,7 +310,7 @@ function Home() {
     return (
       <main>
         <LanguagePicker />
-        {ready && user && <CloudPanel workspace={workspace} />}
+        {ready && user && <CloudPanel />}
         <h1>GuacaBook</h1>
         <p role="status">{t(status)}</p>
         {workspace.error && (
@@ -327,7 +327,7 @@ function Home() {
     return (
       <main className="login">
         <LanguagePicker />
-        {ready && user && <CloudPanel workspace={workspace} />}
+        {ready && user && <CloudPanel />}
         <div className="brand">◉ GuacaBook</div>
         <section>
           <span className="eyebrow">{t("BIENVENUE DANS VOTRE CARNET")}</span>
@@ -377,7 +377,7 @@ function Home() {
   return (
     <main>
       <LanguagePicker />
-      {ready && user && <CloudPanel workspace={workspace} />}
+      {ready && user && <CloudPanel />}
       <header>
         <div className="brand">◉ GuacaBook</div>
         <button
@@ -1053,6 +1053,7 @@ function Home() {
               {busy ? t("Traitement…") : t("Exporter le dataset ↗")}
             </button>
           </footer>
+          <CloudActions workspace={workspace} />
         </>
       )}
       <p className="savestatus" role="status">

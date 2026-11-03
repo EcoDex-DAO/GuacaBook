@@ -325,5 +325,6 @@
   "Modifier": "Edit",
   "Supprimer ce type non attribué ?": "Delete this unassigned account type?",
   "Envoyer l’invitation par e-mail": "Send invitation by email",
-  "Invitation envoyée par e-mail.": "Invitation sent by email."
+  "Invitation envoyée par e-mail.": "Invitation sent by email.",
+  "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.": "Beta: up to 100 photos per account, 15 MB per photo, JPEG / PNG / WebP."
 }

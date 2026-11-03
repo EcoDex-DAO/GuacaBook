@@ -27,9 +27,13 @@ async function open() {
 }
 async function login(page, email) {
   await signIn(page, email);
-  await page
-    .getByRole("heading", { name: "Votre collection centralisée" })
-    .waitFor();
+  await page.locator(".beta-notice").waitFor();
+  assert.equal(
+    await page.locator(".beta-notice").innerText(),
+    "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.",
+  );
+  assert.equal(await page.getByRole("heading", { name: "Votre collection centralisée" }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Actualiser depuis le projet" }).count(), 0);
 }
 async function save(page) {
   await page

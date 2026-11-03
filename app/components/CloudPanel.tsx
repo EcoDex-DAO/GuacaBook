@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 
 import JSZip from "jszip";
 import { coco } from "../../lib/dataset";
-import { CloudRow, readCloudRow, loadCloudDataset } from "../../lib/cloud";
+import { CloudRow, loadCloudDataset } from "../../lib/cloud";
 
 import type { CloudWorkspace } from "../../lib/useCloudWorkspace";
 import { useAccount } from "./AccountGate";
 import { useI18n } from "./I18n";
-export default function CloudPanel({
+export function CloudActions({
   workspace: w,
 }: {
   workspace: CloudWorkspace;
@@ -83,21 +83,6 @@ export default function CloudPanel({
   }
   return (
     <section className="cloudpanel">
-      <h2>{t("Votre collection centralisée")}</h2>
-      <p>
-        {t(
-          "Les animaux, photos et annotations sont chargés depuis votre compte et enregistrés automatiquement en ligne. Aucun nouveau brouillon n’est conservé dans le navigateur.",
-        )}
-      </p>
-      <p role="status">
-        {t(
-          w.saving
-            ? "Enregistrement en ligne…"
-            : w.dirty
-              ? "Modifications en attente d’enregistrement…"
-              : "Toutes les modifications sont enregistrées en ligne.",
-        )}
-      </p>
       {w.error && (
         <div role="alert">
           <p>{t(w.error)}</p>
@@ -117,22 +102,6 @@ export default function CloudPanel({
             {t("Réessayer la sauvegarde")}
           </button>
         )}
-        <button
-          disabled={busy || w.saving}
-          onClick={() => {
-            if (
-              !w.dirty ||
-              confirm(
-                t(
-                  "Recharger la collection en ligne abandonnera les modifications non enregistrées. Téléchargez une copie de secours avant de continuer.",
-                ),
-              )
-            )
-              void run(() => w.reload());
-          }}
-        >
-          {t("Actualiser depuis le projet")}
-        </button>
         <button
           disabled={
             busy ||
@@ -158,13 +127,6 @@ export default function CloudPanel({
           </button>
         )}
       </div>
-      <p className="small">
-        {t(
-          w.remoteStatus === "submitted"
-            ? "État en ligne : soumise pour recherche."
-            : "État en ligne : brouillon privé.",
-        )}
-      </p>
       {admin && (
         <details>
           <summary>{t("Administration des contributions")}</summary>
@@ -205,11 +167,15 @@ export default function CloudPanel({
       {busy && <p role="status">{t("Transfert en cours…")}</p>}
       {message && <p role="status">{t(message)}</p>}
       {error && <p role="alert">{t(error)}</p>}
-      <p className="small">
-        {t(
-          "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP. Les originaux peuvent conserver des métadonnées privées ; vérifiez-les avant l’envoi.",
-        )}
-      </p>
     </section>
+  );
+}
+
+export default function CloudPanel() {
+  const { t } = useI18n();
+  return (
+    <p className="beta-notice">
+      {t("Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.")}
+    </p>
   );
 }
