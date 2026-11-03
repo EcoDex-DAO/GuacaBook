@@ -19,6 +19,9 @@ export type Photo = {
   batchId?: string;
   workflowStep?: number;
   completed?: boolean;
+  doneSteps?: number[];
+  eyeLayout?: "left" | "right" | "both" | "unknown";
+  regionBySide?: Partial<Record<Box["side"], "yes" | "no" | "unknown">>;
   viewpoint?: { azimuth: number; elevation: number } | null;
   bodyVisibility?: "full" | "partial" | "not_visible" | "unknown";
   eyeVisible?: "yes" | "no" | "unknown";
@@ -26,6 +29,7 @@ export type Photo = {
   quality: "unreviewed" | "usable" | "blurry";
 };
 export type Dataset = {
+  batchStages?: Record<string, number>;
   profile: string;
   consent: boolean;
   birds: Bird[];
@@ -81,6 +85,8 @@ export function coco(data: Dataset) {
         viewpoint: p.viewpoint ?? null,
         body_visibility: p.bodyVisibility ?? null,
         eye_visible: p.eyeVisible ?? null,
+        eye_layout: p.eyeLayout ?? null,
+        periocular_by_side: p.regionBySide ?? null,
         periocular_visible: p.regionVisible ?? null,
         annotation_status: p.completed ? "complete" : "draft",
       },
@@ -132,12 +138,61 @@ export function stepValid(p: Photo, step: number): boolean {
       (!["full", "partial"].includes(p.bodyVisibility) || has("macaw"))
     );
   if (step === 3)
-    return !!p.eyeVisible && (p.eyeVisible !== "yes" || has("eye"));
+    return (
+      !!p.eyeVisible &&
+      (p.eyeVisible !== "yes" ||
+        requiredSides(p).every((side) =>
+          p.boxes.some(
+            (b) =>
+              b.category === "eye" &&
+              b.birdId === (p.birdId || "") &&
+              b.side === side,
+          ),
+        ))
+    );
   if (step === 4)
     return (
       p.eyeVisible !== "yes" ||
-      (!!p.regionVisible &&
-        (p.regionVisible !== "yes" || has("periocular_region")))
+      requiredSides(p).every((side) => {
+        const visible =
+          p.regionBySide?.[side] ??
+          (p.eyeLayout === "both" ? undefined : p.regionVisible);
+        return (
+          !!visible &&
+          (visible !== "yes" ||
+            p.boxes.some(
+              (b) =>
+                b.category === "periocular_region" &&
+                b.birdId === (p.birdId || "") &&
+                b.side === side,
+            ))
+        );
+      })
     );
   return [0, 1, 2, 3, 4].every((s) => stepValid(p, s));
+}
+
+export function requiredSides(p: Photo): Box["side"][] {
+  if (p.eyeLayout === "both") return ["left", "right"];
+  if (p.eyeLayout) return [p.eyeLayout];
+  // Legacy drafts preserve their declared laterality.
+  const sides = p.boxes
+    .filter((b) => b.category === "eye" && b.birdId === (p.birdId || ""))
+    .map((b) => b.side);
+  return sides.length ? [...new Set(sides)] : ["unknown"];
+}
+export function nextBatchTask(
+  batch: Photo[],
+  currentId: string,
+  step: number,
+): { id: string; step: number } | null {
+  const done = (p: Photo, s: number) =>
+    (p.doneSteps?.includes(s) || p.completed) && stepValid(p, s);
+  const candidate = batch.find((p) => p.id !== currentId && !done(p, step));
+  if (candidate) return { id: candidate.id, step };
+  for (let s = step + 1; s <= 5; s++) {
+    const p = batch.find((p) => !done(p, s));
+    if (p) return { id: p.id, step: s };
+  }
+  return null;
 }

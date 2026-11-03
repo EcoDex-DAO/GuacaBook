@@ -9,10 +9,14 @@ import {
   Photo,
   coco,
   emptyDataset,
-  makeBox,
+  nextBatchTask,
+  requiredSides,
   stepValid,
 } from "../lib/dataset";
 import ViewReference from "./components/ViewReference";
+import AnnotationCanvas from "./components/AnnotationCanvas";
+import BirdGlyph from "./components/BirdGlyph";
+import EyeGuide from "./components/EyeGuide";
 const uid = () => crypto.randomUUID();
 const steps = [
   "Qualité",
@@ -50,12 +54,19 @@ export default function Home() {
     [side, setSide] = useState<Box["side"]>("unknown"),
     [message, setMessage] = useState("");
   const queue = useRef(Promise.resolve());
-  const [drawing, draw] = useState<{
-    start: { x: number; y: number };
-    end: { x: number; y: number };
-  } | null>(null);
-  const photo = data.photos.find((p) => p.id === active),
-    step = photo?.workflowStep ?? 0;
+  const photo = data.photos.find((p) => p.id === active);
+  const batchKey = photo
+    ? photo.batchId || `${photo.birdId || bird}:${photo.sessionId}`
+    : "";
+  const step = photo
+    ? (data.batchStages?.[batchKey] ?? photo.workflowStep ?? 0)
+    : 0;
+  function setStage(value: number) {
+    update((d) => ({
+      ...d,
+      batchStages: { ...d.batchStages, [batchKey]: value },
+    }));
+  }
   const selected = data.birds.find((b) => b.id === bird);
   const photos = data.photos.filter((p) =>
     bird
@@ -118,16 +129,24 @@ export default function Home() {
     return () => URL.revokeObjectURL(u);
   }, [photo?.id, photo?.blob]);
   useEffect(() => {
-    draw(null);
     setMessage("");
-    setSide("unknown");
+    setSide(photo ? requiredSides(photo)[0] : "unknown");
   }, [active, step]);
   function patchPhoto(patch: Partial<Photo>) {
     if (photo)
       update((d) => ({
         ...d,
         photos: d.photos.map((p) =>
-          p.id === photo.id ? { ...p, completed: false, ...patch } : p,
+          p.id === photo.id
+            ? {
+                ...p,
+                completed: false,
+                doneSteps: (
+                  p.doneSteps || (p.completed ? [0, 1, 2, 3, 4, 5] : [])
+                ).filter((s) => s !== step && s !== 5),
+                ...patch,
+              }
+            : p,
         ),
       }));
   }
@@ -225,24 +244,20 @@ export default function Home() {
     (step === 2
       ? ["full", "partial"].includes(photo.bodyVisibility || "")
       : step === 3
-        ? photo.eyeVisible === "yes"
-        : photo.eyeVisible === "yes" && photo.regionVisible === "yes");
+        ? photo.eyeVisible === "yes" && !!photo.eyeLayout
+        : photo.eyeVisible === "yes" &&
+          (photo.regionBySide?.[side] ??
+            (photo.eyeLayout === "both" ? undefined : photo.regionVisible)) ===
+            "yes");
   function answer(patch: Partial<Photo>, remove: Box["category"][] = []) {
     if (!photo) return;
     patchPhoto({
       ...patch,
-      boxes: photo.boxes.filter(
+      boxes: (patch.boxes ?? photo.boxes).filter(
         (b) =>
           b.birdId !== (photo.birdId || "") || !remove.includes(b.category),
       ),
     });
-  }
-  function point(e: React.PointerEvent<SVGSVGElement>) {
-    const r = e.currentTarget.getBoundingClientRect();
-    return {
-      x: ((e.clientX - r.left) / r.width) * (photo?.width || 1),
-      y: ((e.clientY - r.top) / r.height) * (photo?.height || 1),
-    };
   }
   function openPhoto(p: Photo) {
     if (!p.birdId && bird)
@@ -264,22 +279,28 @@ export default function Home() {
       );
       return;
     }
-    if (step === 5) {
-      patchPhoto({ completed: true });
-      const next = batch.find((p) => p.id !== photo.id && !p.completed);
-      if (next) {
-        setActive(next.id);
-      } else {
-        setScreen("batch");
-        setMessage(
-          "Lot terminé. Vous pouvez exporter ou importer un nouveau lot.",
-        );
-      }
-      return;
+    const changed = {
+      ...photo,
+      doneSteps: [
+        ...new Set([
+          ...(photo.doneSteps || (photo.completed ? [0, 1, 2, 3, 4, 5] : [])),
+          step,
+        ]),
+      ],
+      completed: step === 5,
+    };
+    const currentBatch = batch.map((p) => (p.id === photo.id ? changed : p));
+    const next = nextBatchTask(currentBatch, photo.id, step);
+    update((d) => ({
+      ...d,
+      photos: d.photos.map((p) => (p.id === photo.id ? changed : p)),
+      batchStages: { ...d.batchStages, [batchKey]: next?.step ?? 5 },
+    }));
+    if (next) setActive(next.id);
+    else {
+      setScreen("batch");
+      setMessage("Lot terminé. Toutes les étapes sont validées pour le lot.");
     }
-    patchPhoto({
-      workflowStep: step === 3 && photo.eyeVisible !== "yes" ? 5 : step + 1,
-    });
   }
   const boxList =
     photo?.boxes.filter((b) => !category || b.category === category) || [];
@@ -383,14 +404,14 @@ export default function Home() {
                   ? "Commençons par vos aras."
                   : screen === "batch"
                     ? `Les photos de ${selected?.name || "votre ara"}.`
-                    : "Une photo, un parcours."}
+                    : "Une tâche, tout le lot."}
               </h1>
               <p>
                 {screen === "animals"
                   ? "Créez vos animaux, puis choisissez celui que vous souhaitez photographier."
                   : screen === "batch"
-                    ? "Déposez un lot pour cet animal. Vous annoterez ensuite chaque photo, du début à la fin."
-                    : "Qualité, angle, corps, œil, région périoculaire : gardez le même rythme pour chaque photo."}
+                    ? "Déposez un lot pour cet animal. Vous réaliserez la même tâche sur toutes les photos avant de passer à la suivante."
+                    : "Une tâche à la fois : terminez cette étape sur tout le lot avant de changer de tâche."}
               </p>
             </div>
             {screen !== "animals" && (
@@ -501,7 +522,7 @@ export default function Home() {
                   </p>
                 </section>
                 <section>
-                  <h2>2. Un protocole pour chaque photo</h2>
+                  <h2>2. Une même tâche sur tout le lot</h2>
                   <ol>
                     {steps.map((s) => (
                       <li key={s}>{s}</li>
@@ -564,7 +585,7 @@ export default function Home() {
                             {p.sessionId || "Séance non renseignée"} ·{" "}
                             {p.completed
                               ? "Validée"
-                              : `Brouillon · ${steps[p.workflowStep ?? 0]}`}
+                              : `Brouillon · ${steps[data.batchStages?.[p.batchId || `${p.birdId || bird}:${p.sessionId}`] ?? p.workflowStep ?? 0]}`}
                           </p>
                         </div>
                         <button onClick={() => openPhoto(p)}>
@@ -609,7 +630,7 @@ export default function Home() {
                   <button
                     key={label}
                     aria-current={step === i ? "step" : undefined}
-                    onClick={() => patchPhoto({ workflowStep: i })}
+                    onClick={() => setStage(i)}
                   >
                     <span>{i + 1}</span>
                     {label}
@@ -624,102 +645,32 @@ export default function Home() {
                       {photo.width} × {photo.height}
                     </span>
                   </div>
-                  <svg
-                    className={`canvas ${canDraw ? "drawable" : ""}`}
-                    viewBox={`0 0 ${photo.width} ${photo.height}`}
-                    role="img"
-                    aria-label="Photo à annoter par glisser-déposer"
-                    onPointerDown={(e) => {
-                      if (!canDraw || e.button !== 0) return;
-                      e.currentTarget.setPointerCapture(e.pointerId);
-                      const p = point(e);
-                      draw({ start: p, end: p });
+                  <AnnotationCanvas
+                    key={photo.id}
+                    photo={photo}
+                    url={url}
+                    category={category}
+                    side={side}
+                    canDraw={canDraw}
+                    onReset={() => {
+                      if (category) answer({}, [category]);
                     }}
-                    onPointerMove={(e) => {
-                      if (drawing) draw({ ...drawing, end: point(e) });
+                    onAdd={(bbox) => {
+                      if (!category) return;
+                      patchPhoto({
+                        boxes: [
+                          ...photo.boxes,
+                          {
+                            id: uid(),
+                            category,
+                            birdId: photo.birdId || "",
+                            side: category === "macaw" ? "unknown" : side,
+                            bbox,
+                          },
+                        ],
+                      });
                     }}
-                    onPointerCancel={() => draw(null)}
-                    onPointerUp={(e) => {
-                      if (!drawing || !category) return;
-                      const bbox = makeBox(
-                        drawing.start,
-                        point(e),
-                        photo.width,
-                        photo.height,
-                      );
-                      if (bbox[2] >= 3 && bbox[3] >= 3)
-                        patchPhoto({
-                          boxes: [
-                            ...photo.boxes,
-                            {
-                              id: uid(),
-                              category,
-                              birdId: photo.birdId || "",
-                              side: category === "macaw" ? "unknown" : side,
-                              bbox,
-                            },
-                          ],
-                        });
-                      draw(null);
-                    }}
-                  >
-                    <image
-                      href={url}
-                      width={photo.width}
-                      height={photo.height}
-                    />
-                    {photo.boxes
-                      .filter((b) => !category || b.category === category)
-                      .map((b, i) => (
-                        <g key={b.id}>
-                          <rect
-                            x={b.bbox[0]}
-                            y={b.bbox[1]}
-                            width={b.bbox[2]}
-                            height={b.bbox[3]}
-                            fill="none"
-                            stroke={
-                              b.category === "macaw"
-                                ? "#ffbf67"
-                                : b.category === "eye"
-                                  ? "#94bcff"
-                                  : "#79ffca"
-                            }
-                            strokeWidth="3"
-                            vectorEffect="non-scaling-stroke"
-                          />
-                          <title>
-                            {i + 1}. {b.category}
-                          </title>
-                        </g>
-                      ))}
-                    {drawing &&
-                      (() => {
-                        const b = makeBox(
-                          drawing.start,
-                          drawing.end,
-                          photo.width,
-                          photo.height,
-                        );
-                        return (
-                          <rect
-                            x={b[0]}
-                            y={b[1]}
-                            width={b[2]}
-                            height={b[3]}
-                            fill="#ffffff22"
-                            stroke="white"
-                            strokeWidth="2"
-                            vectorEffect="non-scaling-stroke"
-                          />
-                        );
-                      })()}
-                  </svg>
-                  <p className="small">
-                    {canDraw
-                      ? "Glissez sur la photo pour dessiner un rectangle. Répétez pour plusieurs zones."
-                      : "La photo reste visible pendant chaque étape."}
-                  </p>
+                  />
                   {boxList.length > 0 && (
                     <ul className="annotations">
                       {boxList.map((b, i) => (
@@ -751,7 +702,17 @@ export default function Home() {
                   )}
                 </section>
                 <section className="question">
-                  <span className="eyebrow">ÉTAPE {step + 1} / 6</span>
+                  <span className="eyebrow">
+                    ÉTAPE {step + 1} / 6 ·{" "}
+                    {
+                      batch.filter(
+                        (p) =>
+                          (p.doneSteps?.includes(step) || p.completed) &&
+                          stepValid(p, step),
+                      ).length
+                    }
+                    /{batch.length} PHOTOS TRAITÉES
+                  </span>
                   <h2>{titles[step]}</h2>
                   {step === 0 && (
                     <>
@@ -771,7 +732,21 @@ export default function Home() {
                               patchPhoto({ quality: v as Photo["quality"] })
                             }
                           >
-                            {l}
+                            <BirdGlyph
+                              view="front"
+                              variant={
+                                v === "blurry"
+                                  ? "blurred"
+                                  : v === "partial"
+                                    ? "partial"
+                                    : v === "not_visible"
+                                      ? "hidden"
+                                      : v === "unknown"
+                                        ? "unknown"
+                                        : undefined
+                              }
+                            />
+                            <span>{l}</span>
                           </button>
                         ))}
                       </div>
@@ -833,7 +808,21 @@ export default function Home() {
                               )
                             }
                           >
-                            {l}
+                            <BirdGlyph
+                              view="front"
+                              variant={
+                                v === "blurry"
+                                  ? "blurred"
+                                  : v === "partial"
+                                    ? "partial"
+                                    : v === "not_visible"
+                                      ? "hidden"
+                                      : v === "unknown"
+                                        ? "unknown"
+                                        : undefined
+                              }
+                            />
+                            <span>{l}</span>
                           </button>
                         ))}
                       </div>
@@ -845,122 +834,26 @@ export default function Home() {
                       )}
                     </>
                   )}
-                  {step === 3 && (
-                    <>
-                      <p>
-                        Un œil discernable permet de préparer l’annotation des
-                        détails individuels.
-                      </p>
-                      <div className="choices">
-                        {[
-                          ["yes", "Oui, je vois un œil"],
-                          ["no", "Non, aucun œil visible"],
-                          ["unknown", "Je ne sais pas"],
-                        ].map(([v, l]) => (
-                          <button
-                            key={v}
-                            aria-pressed={photo.eyeVisible === v}
-                            onClick={() =>
-                              answer(
-                                {
-                                  eyeVisible: v as Photo["eyeVisible"],
-                                  ...(v !== "yes"
-                                    ? { regionVisible: undefined }
-                                    : {}),
-                                },
-                                v !== "yes" ? ["eye", "periocular_region"] : [],
-                              )
-                            }
-                          >
-                            {l}
-                          </button>
-                        ))}
-                      </div>
-                      {canDraw && (
-                        <p className="drawhint">
-                          Encadrez l’œil lui-même. La région autour sera annotée
-                          à l’étape suivante.
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {step === 4 && (
-                    <>
-                      {photo.eyeVisible !== "yes" ? (
-                        <p>
-                          Étape non applicable : aucun œil n’a été confirmé
-                          visible.
-                        </p>
-                      ) : (
-                        <>
-                          <p>
-                            Incluez l’œil entier et les motifs environnants :
-                            peau, lignes et plumes distinctives. Gardez un
-                            cadrage comparable d’une séance à l’autre.
-                          </p>
-                          <div className="choices">
-                            {[
-                              ["yes", "La région est visible"],
-                              ["no", "La région est masquée / coupée"],
-                              ["unknown", "Je ne sais pas"],
-                            ].map(([v, l]) => (
-                              <button
-                                key={v}
-                                aria-pressed={photo.regionVisible === v}
-                                onClick={() =>
-                                  answer(
-                                    {
-                                      regionVisible:
-                                        v as Photo["regionVisible"],
-                                    },
-                                    v !== "yes" ? ["periocular_region"] : [],
-                                  )
-                                }
-                              >
-                                {l}
-                              </button>
-                            ))}
-                          </div>
-                          {canDraw && (
-                            <p className="drawhint">
-                              Tracez une boîte plus large autour de l’œil et de
-                              ses détails distinctifs.
-                            </p>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                  {(step === 3 || step === 4) && canDraw && (
-                    <label>
-                      Côté anatomique de la nouvelle zone
-                      <select
-                        value={side}
-                        onChange={(e) => setSide(e.target.value as Box["side"])}
-                      >
-                        <option value="unknown">Inconnu</option>
-                        <option value="left">Gauche de l’animal</option>
-                        <option value="right">Droite de l’animal</option>
-                      </select>
-                      <span className="small">
-                        Ce n’est pas le côté de l’image. En cas de doute, gardez
-                        « inconnu ».
-                      </span>
-                    </label>
+                  {(step === 3 || step === 4) && (
+                    <EyeGuide
+                      photo={photo}
+                      step={step}
+                      side={side}
+                      setSide={setSide}
+                      onChange={answer}
+                    />
                   )}
                   {step === 5 && (
                     <>
                       <p>
-                        Cette photo sera marquée comme validée. Vous passerez
-                        ensuite à la prochaine photo non terminée du lot.
+                        Validez cette photo, puis la suivante du lot. Chaque
+                        étape a été réalisée en série sur toutes les photos.
                       </p>
                       <ul className="review">
                         {steps.slice(0, 5).map((s, i) => (
                           <li key={s}>
                             <span>{s}</span>
-                            <button
-                              onClick={() => patchPhoto({ workflowStep: i })}
-                            >
+                            <button onClick={() => setStage(i)}>
                               {stepValid(photo, i)
                                 ? "✓ Vérifier"
                                 : "À compléter →"}
@@ -978,14 +871,7 @@ export default function Home() {
                   <div className="stepactions">
                     <button
                       disabled={step === 0}
-                      onClick={() =>
-                        patchPhoto({
-                          workflowStep:
-                            step === 5 && photo.eyeVisible !== "yes"
-                              ? 3
-                              : Math.max(0, step - 1),
-                        })
-                      }
+                      onClick={() => setStage(Math.max(0, step - 1))}
                     >
                       Précédent
                     </button>
@@ -994,7 +880,9 @@ export default function Home() {
                       disabled={!stepValid(photo, step)}
                       onClick={advance}
                     >
-                      {step === 5 ? "Valider cette photo →" : "Continuer →"}
+                      {step === 5
+                        ? "Valider cette photo →"
+                        : "Enregistrer et continuer →"}
                     </button>
                   </div>
                   <button className="quiet" onClick={() => setScreen("batch")}>

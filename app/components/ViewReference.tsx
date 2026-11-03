@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+
 export default function ViewReference({
   value,
   onChange,
@@ -25,7 +26,13 @@ export default function ViewReference({
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#eef3eb");
     const camera = new THREE.PerspectiveCamera(39, 1, 0.1, 100);
-    camera.position.set(5.8, 4.3, 7.5);
+    const az = ((value?.azimuth ?? 0) * Math.PI) / 180,
+      el = ((value?.elevation ?? 0) * Math.PI) / 180;
+    camera.position.set(
+      5.5 * Math.sin(az) * Math.cos(el),
+      1 + 5.5 * Math.sin(el),
+      5.5 * Math.cos(az) * Math.cos(el),
+    );
     camera.lookAt(0, 1, 0);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x667766, 2.7));
     const light = new THREE.DirectionalLight(0xffffff, 3);
@@ -63,71 +70,6 @@ export default function ViewReference({
     tail.rotation.x = -0.28;
     for (const x of [-0.23, 0.23])
       ellipsoid(0x5c635a, x, 0.23, 0.2, 0.08, 0.17, 0.12);
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(2, 0.016, 8, 80),
-      new THREE.MeshBasicMaterial({ color: 0xb9cbb8 }),
-    );
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = 0.08;
-    scene.add(ring);
-    function label(text: string, x: number, y: number, z: number) {
-      const c = document.createElement("canvas");
-      c.width = 256;
-      c.height = 64;
-      const ctx = c.getContext("2d")!;
-      ctx.fillStyle = "#193b32";
-      ctx.font = "bold 26px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(text, 128, 42);
-      const tex = new THREE.CanvasTexture(c);
-      const sprite = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: tex, depthTest: false }),
-      );
-      sprite.position.set(x, y, z);
-      sprite.scale.set(1.65, 0.41, 1);
-      scene.add(sprite);
-    }
-    label("DROITE", 1.35, 1.5, 0);
-    label("GAUCHE", -1.35, 1.5, 0);
-    label("AVANT · BEC", 0, 0.08, 2.5);
-    if (value) {
-      const a = (value.azimuth * Math.PI) / 180,
-        e = (value.elevation * Math.PI) / 180;
-      const pos = new THREE.Vector3(
-        2.2 * Math.sin(a) * Math.cos(e),
-        1.3 + 2.2 * Math.sin(e),
-        2.2 * Math.cos(a) * Math.cos(e),
-      );
-      const marker = new THREE.Group();
-      const body = new THREE.Mesh(
-        new THREE.BoxGeometry(0.38, 0.26, 0.23),
-        new THREE.MeshStandardMaterial({ color: 0xdc733f }),
-      );
-      marker.add(body);
-      const lens = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.13, 0.22, 16),
-        new THREE.MeshStandardMaterial({ color: 0x273d35 }),
-      );
-      lens.rotation.x = Math.PI / 2;
-      lens.position.z = 0.19;
-      marker.add(lens);
-      marker.position.copy(pos);
-      marker.lookAt(0, 1.3, 0);
-      scene.add(marker);
-      const line = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([
-          pos,
-          new THREE.Vector3(0, 1.3, 0),
-        ]),
-        new THREE.LineDashedMaterial({
-          color: 0xdc733f,
-          dashSize: 0.1,
-          gapSize: 0.06,
-        }),
-      );
-      line.computeLineDistances();
-      scene.add(line);
-    }
     const resize = () => {
       const w = element.clientWidth;
       renderer.setSize(w, 280);
@@ -173,7 +115,7 @@ export default function ViewReference({
       <div
         ref={host}
         role="img"
-        aria-label="Ara schématique 3D avec côtés anatomiques et position de la caméra"
+        aria-label="Ara 3D cadré comme sur une photo selon l’orientation choisie"
       />
       {failed && (
         <p>
@@ -182,9 +124,9 @@ export default function ViewReference({
         </p>
       )}
       <p className="small">
-        Ara 3D schématique, bec vers « avant ». La caméra orange indique où vous
-        vous trouvez par rapport à l’animal. Ce référentiel provisoire pourra
-        être remplacé par votre modèle.
+        Comparez la silhouette à votre photo : le modèle est cadré depuis le
+        point de vue choisi. Les côtés sont anatomiques. Modèle schématique
+        provisoire.
       </p>
       <div className="angles">
         {angles.map(([label, a]) => (
@@ -196,7 +138,8 @@ export default function ViewReference({
               onChange({ azimuth: a, elevation: value?.elevation ?? 0 })
             }
           >
-            {label}
+            <img src={`/reference/${a}.png`} alt="" width="90" height="80" />
+            <span>{label}</span>
           </button>
         ))}
       </div>

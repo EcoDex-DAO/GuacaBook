@@ -116,3 +116,66 @@ test("exporte les nouvelles catégories et le référentiel sans casser les IDs 
   assert.equal(out.images[0].guacabook.batch_id, "batch-1");
   assert.equal(out.images[0].guacabook.annotation_status, "complete");
 });
+
+test("mode face : exige un cadre par œil et une réponse périoculaire par côté", async () => {
+  const { stepValid } = await import("../lib/dataset");
+  const p: import("../lib/dataset").Photo = {
+    ...data.photos[0],
+    birdId: "bird-1",
+    eyeVisible: "yes",
+    eyeLayout: "both",
+    boxes: [
+      {
+        id: "l",
+        category: "eye",
+        birdId: "bird-1",
+        side: "left",
+        bbox: [1, 1, 10, 10],
+      },
+    ],
+  };
+  assert.equal(stepValid(p, 3), false);
+  p.boxes.push({
+    id: "r",
+    category: "eye",
+    birdId: "bird-1",
+    side: "right",
+    bbox: [30, 1, 10, 10],
+  });
+  assert.equal(stepValid(p, 3), true);
+  p.regionBySide = { left: "yes", right: "no" };
+  assert.equal(stepValid(p, 4), false);
+  p.boxes.push({
+    id: "pl",
+    category: "periocular_region",
+    birdId: "bird-1",
+    side: "left",
+    bbox: [0, 0, 20, 20],
+  });
+  assert.equal(stepValid(p, 4), true);
+});
+test("traite la même étape sur tout le lot avant de passer à la suivante", async () => {
+  const { nextBatchTask } = await import("../lib/dataset");
+  const a = {
+    ...data.photos[0],
+    id: "a",
+    quality: "usable" as const,
+    doneSteps: [0],
+  };
+  const b = {
+    ...data.photos[0],
+    id: "b",
+    quality: "unreviewed" as const,
+    doneSteps: [],
+  };
+  assert.deepEqual(nextBatchTask([a, b], "a", 0), { id: "b", step: 0 });
+  assert.deepEqual(
+    nextBatchTask([a, { ...b, quality: "blurry", doneSteps: [0] }], "b", 0),
+    { id: "a", step: 1 },
+  );
+  // Une tâche cochée mais devenue invalide est reproposée.
+  assert.deepEqual(nextBatchTask([a, { ...b, doneSteps: [0] }], "a", 0), {
+    id: "b",
+    step: 0,
+  });
+});

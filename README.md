@@ -1,6 +1,6 @@
 # GuacaBook
 
-Application locale de collecte photographique d’aras avec un parcours guidé, photo par photo. Pas d’IA, de collecte GPS, de backend ou de stockage partagé.
+Application locale de collecte photographique d’aras avec un parcours guidé, étape par étape sur tout le lot. Pas d’IA, de collecte GPS, de backend ou de stockage partagé.
 
 ## Démarrer
 
@@ -19,15 +19,15 @@ Validation : `npm test`, `npm run typecheck`, `npm run build`. Production : `npm
 2. **Trois onglets** : Dataset est disponible ; Identification et Jumeau numérique sont des espaces annoncés « À venir ».
 3. **Mes animaux** : créer un ou plusieurs aras (UUID stable, nom facultatif, espèce vide si inconnue), puis en choisir un.
 4. **Lot** : préciser une séance et sélectionner plusieurs photos. Chaque import crée un lot UUID, affecté à l’animal choisi. Les séances restent des étiquettes distinctes des lots et de l’identité. Formats JPEG/PNG et autres images que le navigateur décode ; convertir les HEIC/RAW si nécessaire.
-5. **Protocole photo par photo**, avec sauvegarde automatique à chaque réponse :
+5. **Protocole par étape sur tout le lot**, avec sauvegarde automatique à chaque réponse :
    - Qualité nette/exploitable ou floue/à refaire. Date EXIF `DateTimeOriginal` si disponible, corrigible manuellement. Sans EXIF, elle reste vide. Pas de fuseau déduit.
-   - Point de vue : ara schématique 3D, caméra déplacée par boutons, huit directions et trois hauteurs, ou inconnu. Le référentiel est provisoire, à remplacer par le modèle fourni par le porteur du projet. Il ne constitue pas une mesure ni un modèle anatomique validé. Si WebGL n’est pas disponible, les sélecteurs textuels restent accessibles.
+   - Point de vue : ara schématique 3D, cadré comme une photo selon le point de vue choisi, vignettes générées à partir du même modèle, huit directions et trois hauteurs, ou inconnu. Le référentiel est provisoire, à remplacer par le modèle fourni par le porteur du projet. Il ne constitue pas une mesure ni un modèle anatomique validé. Si WebGL n’est pas disponible, les sélecteurs textuels restent accessibles.
    - Corps entier, partiel, non visible ou inconnu. Tracer tout le corps visible pour les deux premières réponses.
-   - Œil visible, non visible ou inconnu. Si visible, encadrer l’œil lui-même et déclarer son côté anatomique (ou inconnu).
-   - Région périoculaire : si l’œil est visible, indiquer si la zone est visible, masquée/coupée ou inconnue. Si visible, encadrer l’œil et les motifs environnants, dans un cadrage comparable entre séances. Sinon, ne pas inventer de boîte. Cette étape est sautée lorsqu’aucun œil n’a été confirmé.
-   - Validation : les réponses et boîtes requises doivent être présentes. La photo suivante non terminée du même lot commence à son propre état sauvegardé ; les réponses ne sont pas copiées. Le dernier élément ramène à la collection.
+   - Œil visible, non visible ou inconnu. Si visible, choisir un œil gauche, un œil droit, les deux yeux de face ou un côté inconnu à l’aide de cartes illustrées. En mode deux yeux, encadrer séparément chaque œil, avec une boîte de côté gauche et une de côté droit obligatoires.
+   - Région périoculaire : si l’œil est visible, indiquer si la zone est visible, masquée/coupée ou inconnue. Si visible, encadrer l’œil et les motifs environnants, dans un cadrage comparable entre séances. Sinon, ne pas inventer de boîte. Pour chaque côté déclaré à l’étape des yeux, une réponse et, si visible, son propre cadre sont requis. Une région peut être masquée d’un côté et visible de l’autre. Les photos sans œil visible sont signalées non applicables à cette étape.
+   - Validation : les réponses et boîtes requises doivent être présentes. Chaque tâche est réalisée successivement sur les photos du lot, puis la tâche suivante commence sur la première photo concernée. Qualité 1 → qualité 2 → orientation 1 → orientation 2, etc. Les réponses ne sont pas copiées. La validation termine le lot et ramène à la collection. Les étapes déjà confirmées et toujours valides ne sont pas redemandées ; la navigation directe permet les corrections.
 
-Toutes les étapes peuvent être revisitées ; une modification rouvre la photo en brouillon. On peut quitter et reprendre depuis la collection. « Validée » signifie que le protocole est renseigné, pas que la photo est scientifiquement exploitable. Plusieurs boîtes d’une même catégorie peuvent être tracées, supprimées puis retracées. La latéralité est celle de l’animal, indépendamment du côté de l’image et du point de vue déclaré. Aucun côté inconnu n’est deviné.
+Toutes les étapes peuvent être revisitées ; une modification rouvre la photo en brouillon. On peut quitter et reprendre depuis la collection. « Validée » signifie que le protocole est renseigné, pas que la photo est scientifiquement exploitable. Plusieurs boîtes d’une même catégorie peuvent être tracées, supprimées puis retracées. « Réinitialiser les cadres de l’étape » efface les boîtes de la catégorie courante pour l’animal ciblé, sans toucher aux autres catégories ni aux autres individus. Pour les yeux et régions, « Réinitialiser ce côté uniquement » conserve les cadres du côté opposé. La latéralité est celle de l’animal, indépendamment du côté de l’image et du point de vue déclaré. Aucun côté inconnu n’est deviné.
 
 Les nouveaux lots ciblent un animal. Pour une photo avec d’autres aras, le parcours annote uniquement l’animal choisi ; ne pas attribuer les autres corps à cette identité. Les annotations multiples des anciens brouillons sont conservées et leurs identités ne sont pas réaffectées. Le panneau d’anciens brouillons permet d’associer leur photo à un animal de lot.
 
@@ -35,7 +35,9 @@ Collecter des photos de chaque côté, à plusieurs dates et moments de la journ
 
 ## Stockage et autorisation
 
-Profil, photos originales et brouillons restent dans IndexedDB de l’origine et du navigateur utilisés, sous la clé historique `guacabook-v1`. Les anciens brouillons sont lisibles : les nouveaux champs optionnels restent non renseignés tant que le protocole n’a pas été suivi. Les onglets ne changent pas ce stockage. Pas de synchronisation entre appareils ni de restauration ZIP : exporter régulièrement avant d’effacer les données du site.
+Le zoom (50 % à 800 %), le dézoom, la molette et le pincement permettent de travailler sur les détails. « Déplacer l’image » active le déplacement au pointeur ; « Ajuster à l’écran » revient à la vue entière. Le canevas reste limité à la hauteur de l’écran et les boîtes sont toujours enregistrées en pixels originaux après orientation EXIF, indépendamment du zoom.
+
+Profil, photos originales et brouillons restent dans IndexedDB de l’origine et du navigateur utilisés, sous la clé historique `guacabook-v1`. Les anciens brouillons sont lisibles : les nouveaux champs optionnels restent non renseignés tant que le protocole n’a pas été suivi. Les onglets ne changent pas ce stockage. `batchStages` conserve la tâche courante de chaque lot et `photos[].doneSteps` les tâches confirmées. Les anciens brouillons et leurs annotations restent conservés. Pas de synchronisation entre appareils ni de restauration ZIP : exporter régulièrement avant d’effacer les données du site.
 
 L’export exige une autorisation explicite de disposer des droits et d’utiliser les photos sous **CC BY 4.0**, redistribution et usage commercial avec attribution inclus. Cette licence photo n’affirme aucune licence pour le code ou les datasets tiers. L’archive n’est pas transmise automatiquement. Elle comprend toutes les photos, y compris les brouillons signalés comme tels. Les fichiers originaux conservent leurs métadonnées potentiellement privées, dont GPS : les inspecter avant partage. L’application ne les extrait pas.
 
@@ -49,9 +51,11 @@ Catégories stables : **1 `macaw`**, **2 `periocular_region`**, nouvelle catégo
 
 - `photo_id`, `individual_id` (animal ciblé ou null), `batch_id` (lot ou null), `session_id` (étiquette ou null).
 - `quality` : `unreviewed`, `usable` ou `blurry`.
-- `viewpoint` : `{azimuth, elevation}` en degrés, ou null si inconnu/non renseigné. Azimut : avant 0°, trois-quarts droit 45°, droite anatomique 90°, arrière droit 135°, dos 180°, arrière gauche 225°, gauche 270°, trois-quarts gauche 315°. Élévation : à hauteur 0°, dessus +30°, dessous −30°. Angles catégoriels approximatifs déclarés, pas des mesures EXIF. Dans la scène 3D, l’axe +Z pointe vers le bec et +X vers le côté marqué DROITE.
+- `viewpoint` : `{azimuth, elevation}` en degrés, ou null si inconnu/non renseigné. Azimut : avant 0°, trois-quarts droit 45°, droite anatomique 90°, arrière droit 135°, dos 180°, arrière gauche 225°, gauche 270°, trois-quarts gauche 315°. Élévation : à hauteur 0°, dessus +30°, dessous −30°. Angles catégoriels approximatifs déclarés, pas des mesures EXIF. Dans la scène 3D, l’axe +Z pointe vers le bec et +X vers le côté anatomique droit.
 - `body_visibility` : `full`, `partial`, `not_visible`, `unknown`, ou null si non renseigné.
 - `eye_visible`, `periocular_visible` : `yes`, `no`, `unknown`, ou null si non renseigné/non applicable.
+- `eye_layout` : `left`, `right`, `both`, `unknown` ou null (ancien brouillon / non renseigné). `both` demande deux cadres distincts à l’étape des yeux.
+- `periocular_by_side` : dictionnaire optionnel par côté `left`, `right` ou `unknown`, contenant `yes`, `no` ou `unknown`. Ces valeurs priment sur le champ global historique `periocular_visible`, qui peut rester null pour les nouveaux brouillons.
 - `annotation_status` : `complete` ou `draft`.
 - `original_file_name` : nom assaini. `images[].date_captured` : date/heure locale sans fuseau ou null.
 
@@ -61,4 +65,6 @@ Catégories stables : **1 `macaw`**, **2 `periocular_region`**, nouvelle catégo
 
 ## Limites
 
-Pas de compte sécurisé, stockage partagé, import COCO/ZIP, réidentification ni jumeau numérique. Taille des lots limitée par le quota navigateur et la mémoire pour l’export ZIP. Dessin au pointeur/toucher, sans dessin au clavier ni zoom de précision pour l’instant. Le référentiel 3D est un schéma procédural, pas encore le modèle de référence final. SeaTurtleID2022 n’est ni téléchargé ni intégré ; vérifier séparément licence et structure avant usage.
+Pas de compte sécurisé, stockage partagé, import COCO/ZIP, réidentification ni jumeau numérique. Taille des lots limitée par le quota navigateur et la mémoire pour l’export ZIP. Dessin au pointeur/toucher, sans dessin au clavier pour l’instant. Le référentiel 3D est un schéma procédural, pas encore le modèle de référence final. SeaTurtleID2022 n’est ni téléchargé ni intégré ; vérifier séparément licence et structure avant usage.
+
+Les huit images de `public/reference/` sont générées depuis le modèle procédural de l’application ; après modification du modèle, lancer `node tests/render-reference.mjs` avec un serveur local démarré pour les régénérer. Ce script utilise un contexte de navigateur isolé et aucune photo réelle.

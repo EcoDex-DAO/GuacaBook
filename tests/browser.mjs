@@ -23,109 +23,223 @@ try {
     .waitFor();
   await page.getByRole("button", { name: "Revenir au dataset" }).click();
   await page.getByLabel("Nom (facultatif)", { exact: true }).fill("Kiwi");
-  await page
-    .getByLabel("Espèce (laisser vide si inconnue)")
-    .fill("Ara ararauna");
   await page.getByRole("button", { name: "Créer un ara", exact: true }).click();
   await page.getByLabel("Séance de prise de vue").fill("matin-1");
   const png = await page.evaluate(() => {
     const c = document.createElement("canvas");
-    c.width = 640;
-    c.height = 480;
+    c.width = 1200;
+    c.height = 3000;
     const x = c.getContext("2d");
     x.fillStyle = "#386f58";
-    x.fillRect(0, 0, 640, 480);
-    x.fillStyle = "#f8d36b";
-    x.fillRect(200, 130, 160, 160);
+    x.fillRect(0, 0, c.width, c.height);
     return c.toDataURL().split(",")[1];
   });
-  await page
-    .getByLabel("Photos du lot")
-    .setInputFiles(
-      ["a", "b"].map((n) => ({
-        name: `${n}.png`,
-        mimeType: "image/png",
-        buffer: Buffer.from(png, "base64"),
-      })),
-    );
+  await page.getByLabel("Photos du lot").setInputFiles(
+    ["a", "b"].map((n) => ({
+      name: `${n}.png`,
+      mimeType: "image/png",
+      buffer: Buffer.from(png, "base64"),
+    })),
+  );
   const next = () =>
-    page.getByRole("button", { name: "Continuer →", exact: true }).click();
-  const svg = page.locator("svg.canvas");
-  async function box() {
-    const b = await svg.boundingBox();
-    await page.mouse.move(b.x + b.width * 0.2, b.y + b.height * 0.2);
+    page
+      .getByRole("button", { name: "Enregistrer et continuer →", exact: true })
+      .click();
+  const selectPhoto = page.getByLabel("Choisir une photo du lot");
+  async function assertPhoto(n) {
+    assert.equal(
+      await selectPhoto.inputValue(),
+      await selectPhoto.locator("option").nth(n).getAttribute("value"),
+    );
+  }
+  async function stage(n) {
+    await page
+      .locator(".steps button")
+      .nth(n)
+      .filter({ has: page.locator("span") })
+      .waitFor();
+    assert.equal(
+      await page.locator(".steps button").nth(n).getAttribute("aria-current"),
+      "step",
+    );
+  }
+  async function box(cx = 600, cy = 1400, width = 200, height = 300) {
+    const coords = await page.locator("svg.zoom-canvas").evaluate(
+      (el, { cx, cy, width, height }) => {
+        const m = el.getScreenCTM();
+        const a = new DOMPoint(cx - width / 2, cy - height / 2).matrixTransform(
+          m,
+        );
+        const b = new DOMPoint(cx + width / 2, cy + height / 2).matrixTransform(
+          m,
+        );
+        return { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y } };
+      },
+      { cx, cy, width, height },
+    );
+    await page.mouse.move(coords.a.x, coords.a.y);
     await page.mouse.down();
-    await page.mouse.move(b.x + b.width * 0.6, b.y + b.height * 0.7);
+    await page.mouse.move(coords.b.x, coords.b.y);
     await page.mouse.up();
   }
-  assert.equal(
-    await page
-      .getByRole("button", { name: "Continuer →", exact: true })
-      .isDisabled(),
-    true,
-  );
+  // Toute la qualité, puis toute l’orientation.
   await page
     .getByRole("button", { name: "Nette / exploitable", exact: true })
     .click();
   await next();
-  await page.getByRole("button", { name: "Profil droit", exact: true }).click();
-  await page.getByLabel("Hauteur de prise de vue").selectOption("30");
-  assert.equal(await page.locator(".reference canvas").count(), 1);
-  await page.locator(".reference").screenshot({path:"/tmp/guacabook-reference.png"});
-  await next();
-  await page
-    .getByRole("button", {
-      name: "Non, une partie est hors cadre",
-      exact: true,
-    })
-    .click();
-  await box();
-  await next();
-  await page
-    .getByRole("button", { name: "Oui, je vois un œil", exact: true })
-    .click();
-  await page
-    .getByLabel("Côté anatomique de la nouvelle zone")
-    .selectOption("right");
-  await box();
-  await next();
-  await page
-    .getByRole("button", { name: "La région est visible", exact: true })
-    .click();
-  await page
-    .getByLabel("Côté anatomique de la nouvelle zone")
-    .selectOption("right");
-  await box();
-  await next();
-  await page
-    .getByRole("button", { name: "Valider cette photo →", exact: true })
-    .click();
-  // La deuxième photo recommence à la qualité, sans réutiliser les réponses.
-  await page
-    .getByRole("heading", {
-      name: "La photo est-elle exploitable ?",
-      exact: true,
-    })
-    .waitFor();
+  await stage(0);
+  await assertPhoto(1);
   await page
     .getByRole("button", { name: "Floue / à refaire", exact: true })
     .click();
   await next();
+  await stage(1);
+  await assertPhoto(0);
+  await page.getByRole("button", { name: "Face", exact: true }).click();
+  assert.equal(await page.locator(".reference canvas").count(), 1);
+  await page
+    .locator(".reference")
+    .screenshot({ path: "/tmp/guacabook-reference.png" });
+  await next();
+  await stage(1);
+  await assertPhoto(1);
+  await page
+    .getByRole("status")
+    .filter({ hasText: "Brouillon enregistré" })
+    .waitFor();
+  await page.reload();
+  await page
+    .getByRole("button", { name: "Choisir cet animal →", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Reprendre →", exact: true })
+    .nth(1)
+    .click();
+  await stage(1);
+  await assertPhoto(1);
   await page
     .getByRole("button", { name: "Point de vue inconnu", exact: true })
     .click();
   await next();
+  await stage(2);
+  await assertPhoto(0);
+  // Corps : image haute cadrée, zoom/dézoom, cadres aux pixels source, reset.
+  await page
+    .getByRole("button", { name: "Oui, l’ara est entier", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Zoomer", exact: true }).click();
+  await page.getByRole("button", { name: "Zoomer", exact: true }).click();
+  const beforePan = await page
+    .locator("svg.zoom-canvas")
+    .getAttribute("viewBox");
+  await page
+    .getByRole("button", { name: "Déplacer l’image", exact: true })
+    .click();
+  const pane = await page.locator("svg.zoom-canvas").boundingBox();
+  await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(pane.x + pane.width / 2 + 20, pane.y + pane.height / 2);
+  await page.mouse.up();
+  assert.notEqual(
+    await page.locator("svg.zoom-canvas").getAttribute("viewBox"),
+    beforePan,
+  );
+  await page
+    .getByRole("button", { name: "Déplacer l’image", exact: true })
+    .click();
+  await box();
+  assert.equal(await page.locator("svg.zoom-canvas rect").count(), 1);
+  await page
+    .getByRole("button", {
+      name: "Réinitialiser les cadres de l’étape",
+      exact: true,
+    })
+    .click();
+  assert.equal(await page.locator("svg.zoom-canvas rect").count(), 0);
+  await page.getByRole("button", { name: "Dézoomer", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Ajuster à l’écran", exact: true })
+    .click();
+  await box();
+  await next();
+  await stage(2);
+  await assertPhoto(1);
   await page
     .getByRole("button", { name: "Le corps n’est pas visible", exact: true })
     .click();
   await next();
+  await stage(3);
+  await assertPhoto(0);
+  // Vue de face : gauche puis droite obligatoires, jamais une boîte pour les deux yeux.
+  await page
+    .getByRole("button", { name: "Oui, au moins un œil visible", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Deux yeux · face", exact: true })
+    .click();
+  await box(500, 1000, 100, 100);
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Enregistrer et continuer →", exact: true })
+      .isDisabled(),
+    true,
+  );
+  await page.getByRole("button", { name: /^Côté droit/ }).click();
+  await box(700, 1000, 100, 100);
+  await next();
+  await stage(3);
+  await assertPhoto(1);
   await page
     .getByRole("button", { name: "Non, aucun œil visible", exact: true })
     .click();
   await next();
+  await stage(4);
+  await assertPhoto(0);
   await page
-    .getByRole("heading", { name: "Vérifiez cette photo", exact: true })
-    .waitFor();
+    .getByRole("button", {
+      name: "La région de ce côté est visible",
+      exact: true,
+    })
+    .click();
+  await box(500, 1000, 200, 200);
+  await page.getByRole("button", { name: /^Côté droit/ }).click();
+  await page
+    .getByRole("button", {
+      name: "La région de ce côté est visible",
+      exact: true,
+    })
+    .click();
+  await box(700, 1000, 200, 200);
+  await page
+    .getByRole("button", {
+      name: "Réinitialiser ce côté uniquement",
+      exact: true,
+    })
+    .click();
+  assert.equal(await page.locator("svg.zoom-canvas rect").count(), 1);
+  await box(700, 1000, 200, 200);
+  // Mobile : le canevas reste cadré même pour une photo de 3000 px de haut.
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  );
+  const rect = await page.locator("svg.zoom-canvas").boundingBox();
+  assert.ok(rect.height < 600);
+  await page.screenshot({ path: "/tmp/guacabook-mobile.png", fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await next();
+  await stage(4);
+  await assertPhoto(1);
+  await next();
+  await stage(5);
+  await assertPhoto(0);
+  await page
+    .getByRole("button", { name: "Valider cette photo →", exact: true })
+    .click();
+  await stage(5);
+  await assertPhoto(1);
   await page
     .getByRole("button", { name: "Valider cette photo →", exact: true })
     .click();
@@ -156,37 +270,24 @@ try {
   const zip = await JSZip.loadAsync(await readFile(await dl.path()));
   const out = JSON.parse(await zip.file("annotations.json").async("string"));
   assert.equal(out.images.length, 2);
-  assert.equal(out.annotations.length, 3);
+  assert.equal(out.annotations.length, 5);
   assert.deepEqual(
     out.annotations.map((a) => a.category_id),
-    [1, 3, 2],
+    [1, 3, 3, 2, 2],
   );
-  assert.deepEqual(out.images[0].guacabook.viewpoint, {
-    azimuth: 90,
-    elevation: 30,
-  });
-  assert.equal(out.images[0].guacabook.body_visibility, "partial");
-  assert.equal(out.images[1].guacabook.eye_visible, "no");
-  assert.equal(out.images[1].guacabook.viewpoint, null);
-  assert.equal(out.annotations[1].guacabook.side, "right");
+  assert.deepEqual(
+    out.annotations.map((a) => a.guacabook.side),
+    [null, "left", "right", "left", "right"],
+  );
+  assert.equal(out.images[0].guacabook.eye_layout, "both");
+  assert.deepEqual(
+    out.annotations[0].bbox.map(Math.round),
+    [500, 1250, 200, 300],
+  );
   assert.ok(zip.file(out.images[0].file_name));
-  assert.equal(out.guacabook.contributor, "Test contributeur");
   assert.deepEqual(errors, []);
-  await page.setViewportSize({ width: 390, height: 844 });
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  );
-  await page.getByRole("button", { name: "Reprendre →" }).first().click();
-  assert.ok(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  );
-  await page.screenshot({ path: "/tmp/guacabook-mobile.png", fullPage: true });
   console.log(
-    "PASS: profil, onglets, animal, lot de deux photos, 3D, étapes guidées, absence d’œil, persistance, export COCO et mobile.",
+    "PASS: traitement par étape du lot, vue photo 3D, deux yeux, resets étape/côté, zoom/dézoom et coordonnées originales, photo haute sur mobile, sauvegarde et COCO.",
   );
 } finally {
   await browser.close();
