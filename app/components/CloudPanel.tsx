@@ -1,59 +1,35 @@
 "use client";
 import { useEffect, useState } from "react";
-import { get } from "idb-keyval";
+
 import JSZip from "jszip";
-import type { Dataset } from "../../lib/dataset";
 import { coco } from "../../lib/dataset";
-import {
-  CloudRow,
-  readCloudRow,
-  loadCloudDataset,
-  saveCloudDataset,
-} from "../../lib/cloud";
+import { CloudRow, readCloudRow, loadCloudDataset } from "../../lib/cloud";
+
+import type { CloudWorkspace } from "../../lib/useCloudWorkspace";
 import { useAccount } from "./AccountGate";
 import { useI18n } from "./I18n";
 export default function CloudPanel({
-  data,
-  onLoad,
+  workspace: w,
 }: {
-  data: Dataset;
-  onLoad: (d: Dataset) => void;
+  workspace: CloudWorkspace;
 }) {
   const { user, client } = useAccount(),
     { t } = useI18n();
-  const [baseline, setBaseline] = useState<number | null | undefined>(),
-    [exists, setExists] = useState(false),
-    [remoteStatus, setRemoteStatus] = useState(""),
-    [busy, setBusy] = useState(false),
+  const [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [admin, setAdmin] = useState(false),
-    [rows, setRows] = useState<CloudRow[]>([]),
-    [savedData, setSavedData] = useState<Dataset | null>(null);
-  const dirty = data !== savedData;
+    [rows, setRows] = useState<CloudRow[]>([]);
   useEffect(() => {
-    if (!user || !client) return;
+    if (!client) return;
     let live = true;
-    readCloudRow(client, user.id)
-      .then((row) => {
-        if (!live) return;
-        setExists(!!row);
-        setRemoteStatus(row?.status || "");
-        if (!row) setBaseline(null);
-      })
-      .catch(() => {
-        if (live)
-          setError(
-            "Sauvegarde en ligne inaccessible. Vérifiez la configuration et réessayez.",
-          );
-      });
     client.rpc("is_research_admin").then(({ data }) => {
       if (live) setAdmin(data === true);
     });
     return () => {
       live = false;
     };
-  }, [user?.id, client]);
+  }, [client]);
   if (!user || !client) return null;
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -62,41 +38,39 @@ export default function CloudPanel({
     try {
       await fn();
     } catch (e) {
-      const known = e instanceof Error ? e.message : "";
+      const key = e instanceof Error ? e.message : "";
       setError(
         [
-          "Limite bêta : 100 photos par collection.",
-          "Une photo dépasse 15 Mo.",
-          "La sauvegarde en ligne accepte JPEG, PNG et WebP. Convertissez les autres formats.",
-          "Une autre version existe en ligne. Rechargez-la avant de sauvegarder.",
-        ].includes(known)
-          ? known
+          "Des annotations différentes existent déjà pour le même animal ou la même photo. Exportez vos copies avant de les rapprocher.",
+          "La copie locale a changé. Elle n’a pas été effacée.",
+        ].includes(key)
+          ? key
           : "Opération en ligne impossible. Vérifiez la connexion, la configuration et les quotas, puis réessayez.",
       );
     } finally {
       setBusy(false);
     }
   }
-  async function load() {
-    if (!client || !user) return;
-    const row = await readCloudRow(client, user.id);
-    if (!row) throw new Error("Missing collection");
-    const restored = await loadCloudDataset(client, row);
-    onLoad(restored);
-    setBaseline(row.revision);
-    setExists(true);
-    setRemoteStatus(row.status);
-    setSavedData(restored);
-    setMessage("Collection chargée depuis votre compte.");
+  async function backup() {
+    const zip = new JSZip();
+    zip.file(
+      "recovery.json",
+      JSON.stringify(
+        { ...w.data, photos: w.data.photos.map(({ blob, ...p }) => p) },
+        null,
+        2,
+      ),
+    );
+    for (const p of w.data.photos) zip.file(`images/${p.id}-${p.name}`, p.blob);
+    await download(zip, "guacabook-recovery.zip");
   }
-  async function save() {
-    if (!client || !user || baseline === undefined) return;
-    const row = await saveCloudDataset(client, user.id, data, baseline);
-    setBaseline(row.revision);
-    setExists(true);
-    setRemoteStatus(row.status);
-    setSavedData(data);
-    setMessage("Collection sauvegardée en ligne.");
+  async function download(zip: JSZip, name: string) {
+    const u = URL.createObjectURL(await zip.generateAsync({ type: "blob" }));
+    const a = document.createElement("a");
+    a.href = u;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(u), 30000);
   }
   async function adminExport(row: CloudRow) {
     if (!client) return;
@@ -105,67 +79,71 @@ export default function CloudPanel({
     zip.file("annotations.json", JSON.stringify(coco(dataset), null, 2));
     for (const p of dataset.photos)
       zip.file(`images/${p.id}-${p.name}`, p.blob);
-    const u = URL.createObjectURL(await zip.generateAsync({ type: "blob" }));
-    const a = document.createElement("a");
-    a.href = u;
-    a.download = `guacabook-${row.owner_id}.zip`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(u), 30000);
+    await download(zip, `guacabook-${row.owner_id}.zip`);
   }
   return (
     <section className="cloudpanel">
-      <h2>{t("Votre sauvegarde en ligne privée")}</h2>
+      <h2>{t("Votre collection centralisée")}</h2>
       <p>
         {t(
-          "Les brouillons se sauvegardent sur cet appareil. Cliquez sur « Sauvegarder en ligne » pour les retrouver ailleurs. Les responsables autorisés peuvent consulter les contributions.",
+          "Les animaux, photos et annotations sont chargés depuis votre compte et enregistrés automatiquement en ligne. Aucun nouveau brouillon n’est conservé dans le navigateur.",
         )}
       </p>
-      {exists && baseline === undefined && (
-        <p className="notice">
-          {t(
-            "Une collection existe déjà sur votre compte. Chargez-la avant de sauvegarder pour éviter de l’écraser.",
-          )}
-        </p>
+      <p role="status">
+        {t(
+          w.saving
+            ? "Enregistrement en ligne…"
+            : w.dirty
+              ? "Modifications en attente d’enregistrement…"
+              : "Toutes les modifications sont enregistrées en ligne.",
+        )}
+      </p>
+      {w.error && (
+        <div role="alert">
+          <p>{t(w.error)}</p>
+          <p>
+            {t(
+              "Conservez cette page ouverte. Téléchargez une copie de secours avant de recharger si vous avez des modifications non enregistrées.",
+            )}
+          </p>
+        </div>
       )}
       <div className="cloudactions">
+        {w.error && (
+          <button
+            disabled={busy || w.saving}
+            onClick={() => run(() => w.flush())}
+          >
+            {t("Réessayer la sauvegarde")}
+          </button>
+        )}
         <button
-          disabled={busy || baseline === undefined}
-          onClick={() => run(save)}
-        >
-          {t("Sauvegarder en ligne")}
-        </button>
-        <button
-          disabled={busy || !exists}
+          disabled={busy || w.saving}
           onClick={() => {
             if (
+              !w.dirty ||
               confirm(
                 t(
-                  "Charger la version en ligne remplacera le brouillon de ce compte sur cet appareil. Exportez-le avant de continuer si nécessaire.",
+                  "Recharger la collection en ligne abandonnera les modifications non enregistrées. Téléchargez une copie de secours avant de continuer.",
                 ),
               )
             )
-              void run(load);
+              void run(() => w.reload());
           }}
         >
-          {t("Charger la version en ligne")}
+          {t("Actualiser depuis le projet")}
         </button>
         <button
           disabled={
             busy ||
-            !data.consent ||
-            !data.photos.length ||
-            dirty ||
-            baseline == null
+            !w.data.consent ||
+            !w.data.photos.length ||
+            w.saving ||
+            !!w.error
           }
           onClick={() =>
             run(async () => {
-              const { data: revision, error } = await client.rpc(
-                "submit_dataset",
-                { expected_revision: baseline },
-              );
-              if (error) throw error;
-              setBaseline(Number(revision));
-              setRemoteStatus("submitted");
+              await w.submit();
               setMessage(
                 "Collection soumise avec votre autorisation CC BY 4.0.",
               );
@@ -174,48 +152,19 @@ export default function CloudPanel({
         >
           {t("Soumettre ma collection à la recherche")}
         </button>
+        {w.error && (
+          <button disabled={busy} onClick={() => run(backup)}>
+            {t("Télécharger une copie de secours")}
+          </button>
+        )}
       </div>
       <p className="small">
         {t(
-          remoteStatus === "submitted"
+          w.remoteStatus === "submitted"
             ? "État en ligne : soumise pour recherche."
             : "État en ligne : brouillon privé.",
-        )}{" "}
-        {t(
-          "Soumission : sauvegardez d’abord vos modifications et cochez l’autorisation CC BY 4.0 en bas de page.",
         )}
       </p>
-      <details>
-        <summary>{t("Transférer un ancien brouillon local")}</summary>
-        <p>
-          {t(
-            "Ce transfert est volontaire. Il remplace le brouillon de ce compte sur cet appareil ; sauvegardez ou exportez votre travail avant de continuer.",
-          )}
-        </p>
-        <button
-          disabled={busy}
-          onClick={() => {
-            if (
-              confirm(
-                t("Importer le brouillon local historique dans ce compte ?"),
-              )
-            )
-              void run(async () => {
-                const legacy = await get<Dataset>("guacabook-v1");
-                if (!legacy) {
-                  setMessage("Aucun ancien brouillon local trouvé.");
-                  return;
-                }
-                onLoad({ ...legacy, consent: false });
-                setMessage(
-                  "Ancien brouillon importé localement. Vérifiez-le puis sauvegardez-le en ligne.",
-                );
-              });
-          }}
-        >
-          {t("Importer mon ancien brouillon")}
-        </button>
-      </details>
       {admin && (
         <details>
           <summary>{t("Administration des contributions")}</summary>

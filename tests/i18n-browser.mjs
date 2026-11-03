@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
+import { setup, resetMock } from "./supabase-mock.mjs";
 import { readFile } from "node:fs/promises";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -39,7 +40,15 @@ try {
     const button = (key) =>
       page.getByRole("button", { name: t(key), exact: true });
     const next = () => button("Enregistrer et continuer →").click();
+    resetMock();
+    await setup(page);
     await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
+    await page
+      .getByLabel(t("Adresse e-mail"), { exact: true })
+      .fill("a@example.com");
+    await button("Recevoir un code").click();
+    await page.getByLabel(t("Code reçu par e-mail")).fill("123456");
+    await button("Valider le code").click();
     await page.getByLabel(nameLabel, { exact: true }).waitFor();
     assert.equal(await page.getByLabel("Language / Langue").inputValue(), code);
     assert.equal(await page.locator("html").getAttribute("lang"), code);
@@ -65,12 +74,12 @@ try {
       .filter({
         hasText:
           code === "fr"
-            ? "Fichiers non pris en charge"
+            ? "Fichiers refusés"
             : code === "en"
-              ? "Unsupported files"
+              ? "Rejected files"
               : code === "es"
-                ? "Archivos no compatibles"
-                : "Arquivos não suportados",
+                ? "Archivos rechazados"
+                : "Arquivos recusados",
       })
       .waitFor();
     const png = await page.evaluate(() => {
@@ -136,7 +145,10 @@ try {
     await button("Valider cette photo →").click();
     await page
       .getByRole("status")
-      .filter({ hasText: t("Brouillon enregistré sur cet appareil") })
+      .filter({
+        hasText: t("Toutes les modifications sont enregistrées en ligne."),
+      })
+      .first()
       .waitFor();
     await page.locator("input[type=checkbox]").check();
     const dp = page.waitForEvent("download");
@@ -190,11 +202,12 @@ try {
   }
   // Unsupported languages fall back to English; an explicit choice overrides the browser.
   const page = await browser.newPage({ locale: "de-DE" });
+  await setup(page);
   await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
-  await page.getByLabel("Name or nickname").waitFor();
+  await page.getByLabel("Email address", { exact: true }).waitFor();
   await page.getByLabel("Language / Langue").selectOption("es");
   await page.reload();
-  await page.getByLabel("Nombre o seudónimo").waitFor();
+  await page.getByLabel("Correo electrónico", { exact: true }).waitFor();
   await page.close();
   console.log("PASS: unsupported locale fallback and remembered override.");
 } finally {

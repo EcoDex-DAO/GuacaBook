@@ -1,5 +1,6 @@
 // Regenerate orientation cards from the actual procedural model (server required).
 import { chromium } from "@playwright/test";
+import { setup } from "./supabase-mock.mjs";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
   args: ["--no-sandbox", "--enable-unsafe-swiftshader"],
@@ -9,7 +10,18 @@ try {
     viewport: { width: 1440, height: 1100 },
     locale: "fr-FR",
   });
+  await setup(page);
   await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
+  await page
+    .getByLabel("Adresse e-mail", { exact: true })
+    .fill("a@example.com");
+  await page
+    .getByRole("button", { name: "Recevoir un code", exact: true })
+    .click();
+  await page.getByLabel("Code reçu par e-mail").fill("123456");
+  await page
+    .getByRole("button", { name: "Valider le code", exact: true })
+    .click();
   await page.getByLabel("Nom ou pseudonyme").fill("Référentiel");
   await page.getByRole("button", { name: "Entrer dans GuacaBook" }).click();
   await page.getByRole("button", { name: "Créer un ara", exact: true }).click();

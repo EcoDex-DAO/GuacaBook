@@ -2,7 +2,7 @@
 
 [English documentation](README.en.md) · Interface : français, anglais, espagnol et portugais.
 
-Application locale de collecte photographique d’aras avec un parcours guidé, étape par étape sur tout le lot. Pas d’IA ni de collecte GPS. Connexion et stockage centralisé optionnels avec Supabase : [guide de configuration](docs/SUPABASE.md).
+Application centralisée de collecte photographique d’aras, avec un parcours guidé étape par étape sur tout le lot. **Connexion Supabase obligatoire**, animaux/photos/annotations chargés depuis le compte et sauvegardés automatiquement en ligne. Pas de mode local ni hors ligne. [Configuration Supabase et Vercel](docs/SUPABASE.md).
 
 ## Démarrer
 
@@ -10,14 +10,18 @@ Node.js 24.19.0 (`.nvmrc`), npm 11. Depuis `/workspace/GuacaBook` :
 
 ```sh
 npm ci --no-audit --no-fund
+cp .env.example .env.local
+# Remplir uniquement les deux paramètres publics Supabase dans .env.local.
 npm run dev
 ```
 
-Validation : `npm test`, `npm run typecheck`, `npm run build`. Production : `npm start` après compilation. Aucune configuration requise pour la démonstration locale. Pour les comptes et la sauvegarde privée, suivre le [guide Supabase](docs/SUPABASE.md). Le port par défaut est 3000. Avec un serveur lancé : `npm run smoke` (Chromium système `/usr/bin/chromium`, ou variable `CHROMIUM_PATH` ; `TEST_BASE_URL` permet une autre origine).
+Sans configuration, l’application affiche un message d’indisponibilité et n’ouvre aucun éditeur local. Validation : `npm test`, `npm run typecheck`, `npm run build`. Production : `npm start`. Les variables `NEXT_PUBLIC_` doivent être définies avant compilation. Aucun changement de schéma n’est requis pour passer de la version à sauvegarde manuelle à cette version automatique si la migration 001 a déjà été appliquée.
+
+Les tests navigateur utilisent une API simulée ; voir le guide pour la compilation de test, puis `npm run smoke`, `node tests/cloud-browser.mjs` et `node tests/i18n-browser.mjs`. Ils ne doivent pas envoyer d’e-mails réels.
 
 ## Expérience utilisateur
 
-1. **Identification** : en mode Supabase, connexion par code e-mail et brouillon isolé par compte. En démonstration locale : pseudonyme mémorisé sur cet appareil. Ce n’est pas une authentification et cela ne protège pas les données d’autres utilisateurs du même navigateur. « Mon profil » permet de modifier ce pseudonyme ; les données de la collection restent les mêmes.
+1. **Identification** : connexion obligatoire par code e-mail, puis pseudonyme pour l’attribution. La collection du compte est chargée automatiquement, y compris depuis un nouvel appareil.
 2. **Trois onglets** : Dataset est disponible ; Identification et Jumeau numérique sont des espaces annoncés « À venir ».
 3. **Mes animaux** : créer un ou plusieurs aras (UUID stable, nom facultatif, espèce vide si inconnue), puis en choisir un.
 4. **Lot** : préciser une séance et sélectionner plusieurs photos. Chaque import crée un lot UUID, affecté à l’animal choisi. Les séances restent des étiquettes distinctes des lots et de l’identité. Formats JPEG/PNG et autres images que le navigateur décode ; convertir les HEIC/RAW si nécessaire.
@@ -39,7 +43,13 @@ Collecter des photos de chaque côté, à plusieurs dates et moments de la journ
 
 Le zoom (50 % à 800 %), le dézoom, la molette et le pincement permettent de travailler sur les détails. « Déplacer l’image » active le déplacement au pointeur ; « Ajuster à l’écran » revient à la vue entière. Le canevas reste limité à la hauteur de l’écran et les boîtes sont toujours enregistrées en pixels originaux après orientation EXIF, indépendamment du zoom.
 
-Profil, photos originales et brouillons restent dans IndexedDB de l’origine et du navigateur utilisés, sous la clé historique `guacabook-v1` en démonstration, ou `guacabook-v1:<UUID-compte>` en mode connecté. Les anciens brouillons sont lisibles : les nouveaux champs optionnels restent non renseignés tant que le protocole n’a pas été suivi. Les onglets ne changent pas ce stockage. `batchStages` conserve la tâche courante de chaque lot et `photos[].doneSteps` les tâches confirmées. Les anciens brouillons et leurs annotations restent conservés. Le mode Supabase ajoute une sauvegarde et un chargement explicites entre appareils avec contrôle de révision. Le transfert des anciens brouillons reste volontaire. Pas de restauration ZIP : exporter régulièrement avant d’effacer les données du site.
+Les animaux, les originaux, les annotations et la progression ont Supabase pour source de référence. Ils sont chargés automatiquement à la connexion et après rechargement de la page. Les modifications sont enregistrées après un court délai, avec une file sérialisée : les changements pendant un transfert sont enregistrés à sa suite. Les révisions empêchent d’écraser silencieusement une modification faite sur un autre appareil.
+
+L’application n’écrit plus de photos ni de brouillons dans IndexedDB, et ne propose plus de transfert ou de mode local. Les anciens caches des versions antérieures ne sont ni lus ni effacés silencieusement. Seules les collections déjà envoyées dans Supabase sont reprises automatiquement. Les données encore uniquement présentes dans un ancien navigateur doivent être conservées pour une récupération séparée avant tout nettoyage de ce navigateur.
+
+Le navigateur garde en mémoire les données nécessaires à l’affichage et les modifications en cours, ainsi que la session d’authentification et la préférence de langue. Si un transfert échoue, la page l’indique, suspend les envois automatiques et permet de réessayer ou de télécharger une copie de secours (`recovery.json` + originaux). Aucun enregistrement réussi n’est annoncé pour ces changements. Garder la page ouverte : les modifications non envoyées ne survivent pas à sa fermeture. La déconnexion volontaire attend l’enregistrement ; en cas d’échec, elle est interrompue. Une actualisation depuis le projet avec des changements non enregistrés demande confirmation.
+
+La copie de secours n’est pas un export de recherche ni un import ZIP automatique. L’export COCO reste disponible séparément, avec consentement.
 
 L’export exige une autorisation explicite de disposer des droits et d’utiliser les photos sous **CC BY 4.0**, redistribution et usage commercial avec attribution inclus. Cette licence photo n’affirme aucune licence pour le code ou les datasets tiers. L’archive n’est pas transmise automatiquement. Elle comprend toutes les photos, y compris les brouillons signalés comme tels. Les fichiers originaux conservent leurs métadonnées potentiellement privées, dont GPS : les inspecter avant partage. L’application ne les extrait pas.
 
@@ -67,9 +77,9 @@ Catégories stables : **1 `macaw`**, **2 `periocular_region`**, nouvelle catégo
 
 ## Limites
 
-Comptes et stockage privé optionnels avec Supabase. Pas d’import COCO/ZIP, de réidentification ni de jumeau numérique. Taille des lots limitée par le quota navigateur et la mémoire pour l’export ZIP. Dessin au pointeur/toucher, sans dessin au clavier pour l’instant. Le référentiel 3D est un schéma procédural, pas encore le modèle de référence final. SeaTurtleID2022 n’est ni téléchargé ni intégré ; vérifier séparément licence et structure avant usage.
+Comptes et stockage privé Supabase obligatoires. Pas d’import COCO/ZIP, de réidentification ni de jumeau numérique. Taille des lots limitée par les quotas du projet, la mémoire du navigateur et celle nécessaire à l’export ZIP. Dessin au pointeur/toucher, sans dessin au clavier pour l’instant. Le référentiel 3D est un schéma procédural, pas encore le modèle de référence final. SeaTurtleID2022 n’est ni téléchargé ni intégré ; vérifier séparément licence et structure avant usage.
 
-Les huit images de `public/reference/` sont générées depuis le modèle procédural de l’application ; après modification du modèle, lancer `node tests/render-reference.mjs` avec un serveur local démarré pour les régénérer. Ce script utilise un contexte de navigateur isolé et aucune photo réelle.
+Les huit images de `public/reference/` sont générées depuis le modèle procédural de l’application ; après modification du modèle, lancer `node tests/render-reference.mjs` avec un serveur local démarré pour les régénérer. Ce script utilise un contexte de navigateur isolé, l’API de test simulée et aucune photo réelle.
 
 ## Langues
 

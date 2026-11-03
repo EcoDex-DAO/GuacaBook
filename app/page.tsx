@@ -1,15 +1,13 @@
 "use client";
 import { useI18n, LanguagePicker } from "./components/I18n";
-import { useEffect, useRef, useState } from "react";
-import { get, set } from "idb-keyval";
+import { useEffect, useState } from "react";
+import { useCloudWorkspace } from "../lib/useCloudWorkspace";
 import exifr from "exifr";
 import JSZip from "jszip";
 import {
   Box,
-  Dataset,
   Photo,
   coco,
-  emptyDataset,
   nextBatchTask,
   requiredSides,
   stepValid,
@@ -47,15 +45,24 @@ export default function Page() {
   );
 }
 function Home() {
-  const { user } = useAccount();
-  const storageKey = user ? `guacabook-v1:${user.id}` : "guacabook-v1";
+  const { user, registerBeforeSignOut } = useAccount();
+  const workspace = useCloudWorkspace();
+  const { data, update, ready } = workspace;
+  const status = !ready
+    ? "Chargement de votre collection en ligne…"
+    : workspace.saving
+      ? "Enregistrement en ligne…"
+      : workspace.dirty
+        ? "Modifications en attente d’enregistrement…"
+        : "Toutes les modifications sont enregistrées en ligne.";
+  useEffect(
+    () => registerBeforeSignOut(workspace.flush),
+    [registerBeforeSignOut, workspace.flush],
+  );
   const { t } = useI18n();
   const steps = stepKeys.map((key) => t(key));
   const titles = titleKeys.map((key) => t(key));
-  const [data, update] = useState<Dataset>(emptyDataset),
-    [ready, setReady] = useState(false),
-    [status, setStatus] = useState("Chargement du brouillon…"),
-    [logged, setLogged] = useState(false),
+  const [logged, setLogged] = useState(false),
     [profile, setProfile] = useState(""),
     [tab, setTab] = useState("dataset"),
     [screen, setScreen] = useState<"animals" | "batch" | "annotate">("animals"),
@@ -69,7 +76,7 @@ function Home() {
     [side, setSide] = useState<Box["side"]>("unknown"),
     [message, setMessage] = useState("");
   const [failedFiles, setFailedFiles] = useState("");
-  const queue = useRef(Promise.resolve());
+
   const photo = data.photos.find((p) => p.id === active);
   const batchKey = photo
     ? photo.batchId || `${photo.birdId || bird}:${photo.sessionId}`
@@ -98,43 +105,13 @@ function Home() {
       )
     : [];
   useEffect(() => {
-    get<Dataset>(storageKey)
-      .then((d) => {
-        if (d) {
-          update(d);
-          setProfile(d.profile);
-          setLogged(!!d.profile);
-          setBird(d.birds[0]?.id || "");
-        }
-        setReady(true);
-      })
-      .catch(() =>
-        setStatus(
-          "Stockage local inaccessible. Vérifiez les permissions du navigateur.",
-        ),
-      );
-  }, []);
-  useEffect(() => {
     if (!ready) return;
-    let live = true;
-    setStatus("Enregistrement…");
-    queue.current = queue.current
-      .catch(() => {})
-      .then(() => set(storageKey, data));
-    queue.current
-      .then(() => {
-        if (live) setStatus("Brouillon enregistré sur cet appareil");
-      })
-      .catch(() => {
-        if (live)
-          setStatus(
-            "Échec de sauvegarde. Exportez vos données : stockage plein ou indisponible.",
-          );
-      });
-    return () => {
-      live = false;
-    };
-  }, [data, ready]);
+    setProfile(data.profile);
+    setLogged(!!data.profile);
+    setBird(data.birds[0]?.id || "");
+    setActive("");
+    setScreen("animals");
+  }, [ready]);
   useEffect(() => {
     if (!photo) {
       setUrl("");
@@ -179,6 +156,14 @@ function Home() {
     const batchId = uid();
     try {
       for (const file of Array.from(files)) {
+        if (
+          !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
+          file.size > 15 * 1024 * 1024 ||
+          data.photos.length + imported.length >= 100
+        ) {
+          failed.push(file.name);
+          continue;
+        }
         try {
           const bitmap = await createImageBitmap(file, {
             imageOrientation: "from-image",
@@ -217,7 +202,7 @@ function Home() {
       }
       if (failed.length)
         setMessage(
-          "Fichiers non pris en charge : {files}. Convertissez les HEIC/RAW en JPEG ou PNG.",
+          "Fichiers refusés : {files}. Utilisez JPEG, PNG ou WebP, 15 Mo maximum par photo et 100 photos par collection.",
         );
       setFailedFiles(failed.join(", "));
     } finally {
@@ -325,40 +310,24 @@ function Home() {
     return (
       <main>
         <LanguagePicker />
-        {ready && user && (
-          <CloudPanel
-            data={data}
-            onLoad={(d) => {
-              update(d);
-              setProfile(d.profile);
-              setLogged(!!d.profile);
-              setBird(d.birds[0]?.id || "");
-              setActive("");
-              setScreen("animals");
-            }}
-          />
-        )}
+        {ready && user && <CloudPanel workspace={workspace} />}
         <h1>GuacaBook</h1>
         <p role="status">{t(status)}</p>
+        {workspace.error && (
+          <>
+            <p role="alert">{t(workspace.error)}</p>
+            <button onClick={() => void workspace.reload()}>
+              {t("Réessayer le chargement")}
+            </button>
+          </>
+        )}
       </main>
     );
   if (!logged)
     return (
       <main className="login">
         <LanguagePicker />
-        {ready && user && (
-          <CloudPanel
-            data={data}
-            onLoad={(d) => {
-              update(d);
-              setProfile(d.profile);
-              setLogged(!!d.profile);
-              setBird(d.birds[0]?.id || "");
-              setActive("");
-              setScreen("animals");
-            }}
-          />
-        )}
+        {ready && user && <CloudPanel workspace={workspace} />}
         <div className="brand">◉ GuacaBook</div>
         <section>
           <span className="eyebrow">{t("BIENVENUE DANS VOTRE CARNET")}</span>
@@ -399,9 +368,7 @@ function Home() {
           <p className="small">
             {" "}
             {t(
-              user
-                ? "Choisissez un pseudonyme pour votre compte. Vous pourrez aussi charger une collection déjà sauvegardée en ligne."
-                : "Profil local mémorisé sur cet appareil. Il ne s’agit pas d’un compte sécurisé. Photos et brouillons restent dans ce navigateur.",
+              "Choisissez un pseudonyme pour votre compte. Vos animaux et annotations seront sauvegardés automatiquement en ligne.",
             )}{" "}
           </p>
         </section>
@@ -410,19 +377,7 @@ function Home() {
   return (
     <main>
       <LanguagePicker />
-      {ready && user && (
-        <CloudPanel
-          data={data}
-          onLoad={(d) => {
-            update(d);
-            setProfile(d.profile);
-            setLogged(!!d.profile);
-            setBird(d.birds[0]?.id || "");
-            setActive("");
-            setScreen("animals");
-          }}
-        />
-      )}
+      {ready && user && <CloudPanel workspace={workspace} />}
       <header>
         <div className="brand">◉ GuacaBook</div>
         <button
@@ -593,7 +548,7 @@ function Home() {
                     <input
                       aria-label={t("Photos du lot")}
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       multiple
                       disabled={busy || !bird}
                       onChange={(e) => {
@@ -1086,9 +1041,7 @@ function Home() {
               <p className="small">
                 {" "}
                 {t(
-                  user
-                    ? "Brouillon local automatique ; sauvegarde en ligne sur demande. Exportez régulièrement. Vérifiez les métadonnées privées des originaux avant envoi ou partage."
-                    : "Photos et brouillons restent dans ce navigateur. Exportez régulièrement. Les originaux peuvent contenir des métadonnées privées : inspectez-les avant partage. Aucun GPS n’est extrait.",
+                  "Votre collection est centralisée dans votre compte. Vérifiez l’état de sauvegarde avant de fermer la page. Les originaux peuvent contenir des métadonnées privées.",
                 )}{" "}
               </p>
             </div>

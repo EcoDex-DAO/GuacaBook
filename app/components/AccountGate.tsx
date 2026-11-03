@@ -5,6 +5,8 @@ import {
   useEffect,
   useState,
   Fragment,
+  useRef,
+  useCallback,
 } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { cloudConfigured, getSupabase } from "../../lib/supabase";
@@ -12,7 +14,8 @@ import { LanguagePicker, useI18n } from "./I18n";
 const AccountContext = createContext<{
   user: User | null;
   client: SupabaseClient | null;
-}>({ user: null, client: null });
+  registerBeforeSignOut: (fn: () => Promise<void>) => () => void;
+}>({ user: null, client: null, registerBeforeSignOut: () => () => {} });
 export const useAccount = () => useContext(AccountContext);
 export default function AccountGate({
   children,
@@ -20,6 +23,13 @@ export default function AccountGate({
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
+  const beforeSignOut = useRef<null | (() => Promise<void>)>(null);
+  const registerBeforeSignOut = useCallback((fn: () => Promise<void>) => {
+    beforeSignOut.current = fn;
+    return () => {
+      if (beforeSignOut.current === fn) beforeSignOut.current = null;
+    };
+  }, []);
   const [client, setClient] = useState<SupabaseClient | null>(null),
     [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(!cloudConfigured),
@@ -101,14 +111,15 @@ export default function AccountGate({
   }
   if (!cloudConfigured)
     return (
-      <AccountContext.Provider value={{ user: null, client: null }}>
-        <div className="accountbar">
+      <main>
+        <LanguagePicker />
+        <h1>GuacaBook</h1>
+        <p role="alert">
           {t(
-            "Mode local : Supabase n’est pas encore configuré sur ce déploiement.",
+            "La connexion au projet centralisé n’est pas configurée. Contactez le responsable du site.",
           )}
-        </div>
-        {children}
-      </AccountContext.Provider>
+        </p>
+      </main>
     );
   if (!ready)
     return (
@@ -194,7 +205,7 @@ export default function AccountGate({
       </main>
     );
   return (
-    <AccountContext.Provider value={{ user, client }}>
+    <AccountContext.Provider value={{ user, client, registerBeforeSignOut }}>
       <div className="accountbar">
         <span>
           {t("Compte connecté")} · {user.email}
@@ -204,9 +215,17 @@ export default function AccountGate({
           onClick={async () => {
             if (!client) return;
             setBusy(true);
-            const { error } = await client.auth.signOut({ scope: "local" });
-            if (error) setError("Déconnexion impossible. Réessayez.");
-            setBusy(false);
+            try {
+              await beforeSignOut.current?.();
+              const { error } = await client.auth.signOut({ scope: "local" });
+              if (error) throw error;
+            } catch {
+              setError(
+                "Déconnexion interrompue : sauvegardez vos modifications avant de quitter.",
+              );
+            } finally {
+              setBusy(false);
+            }
           }}
         >
           {t("Se déconnecter")}
