@@ -4,7 +4,69 @@ export const rows = new Map(),
   objects = new Map();
 export const counters = { uploads: 0 };
 export const faults = { writes: 0, delay: 0 };
+export const managedUsers = new Map();
+export const accountTypes = new Map();
+const passwords = new Map();
+function initializeAccounts() {
+  managedUsers.clear();
+  accountTypes.clear();
+  passwords.clear();
+  for (const type of [
+    {
+      id: "admin",
+      label: "Administrateur",
+      can_manage_accounts: true,
+      can_review_data: true,
+      builtin: true,
+    },
+    {
+      id: "contributor",
+      label: "Contributeur",
+      can_manage_accounts: false,
+      can_review_data: false,
+      builtin: true,
+    },
+    {
+      id: "reviewer",
+      label: "Réviseur",
+      can_manage_accounts: false,
+      can_review_data: true,
+      builtin: true,
+    },
+  ])
+    accountTypes.set(type.id, type);
+  for (const [id, email, type] of [
+    [A, "ecodexdao@gmail.com", "admin"],
+    [B, "b@example.com", "contributor"],
+  ]) {
+    managedUsers.set(id, {
+      account_id: id,
+      email,
+      type_id: type,
+      active: true,
+      protected: id === A,
+      created_at: new Date().toISOString(),
+      email_confirmed_at: new Date().toISOString(),
+      has_password: true,
+    });
+    passwords.set(id, "test-password-123");
+  }
+}
+initializeAccounts();
+export async function signIn(
+  page,
+  email = "a@example.com",
+  t = (key) => key,
+  password = "test-password-123",
+) {
+  await page.getByLabel(t("Adresse e-mail"), { exact: true }).fill(email);
+  await page.getByLabel(t("Mot de passe"), { exact: true }).fill(password);
+  await page
+    .getByRole("button", { name: t("Se connecter"), exact: true })
+    .click();
+}
 export function resetMock() {
+  initializeAccounts();
   rows.clear();
   objects.clear();
   counters.uploads = 0;
@@ -67,6 +129,105 @@ export async function setup(page) {
         body: JSON.stringify(value),
       });
     if (req.method() === "OPTIONS") return json({});
+    if (url.pathname.endsWith("/token")) {
+      const input = req.postDataJSON(),
+        found = [...managedUsers.values()].find(
+          (u) =>
+            u.email === input.email ||
+            (input.email === "a@example.com" && u.account_id === A),
+        );
+      if (!found || passwords.get(found.account_id) !== input.password)
+        return json({ msg: "Invalid credentials" }, 400);
+      const user = {
+        id: found.account_id,
+        email: found.email,
+        aud: "authenticated",
+        role: "authenticated",
+        created_at: found.created_at,
+      };
+      return json({
+        user,
+        access_token: jwt(user),
+        refresh_token: "test-refresh",
+        expires_in: 3600,
+        token_type: "bearer",
+      });
+    }
+    if (url.pathname.endsWith("/recover")) return json({});
+    if (url.pathname.endsWith("/user")) {
+      const u = managedUsers.get(id);
+      if (!u) return json({ msg: "Unknown user" }, 401);
+      if (req.method() === "PUT") {
+        const input = req.postDataJSON();
+        passwords.set(id, input.password);
+        u.has_password = true;
+        u.email_confirmed_at = new Date().toISOString();
+      }
+      return json({
+        id,
+        email: u.email,
+        aud: "authenticated",
+        role: "authenticated",
+        created_at: u.created_at,
+      });
+    }
+    if (url.pathname.endsWith("/rpc/my_account")) {
+      const u = managedUsers.get(id),
+        type = accountTypes.get(u?.type_id);
+      return json(
+        u
+          ? {
+              user_id: id,
+              type_id: u.type_id,
+              label: type.label,
+              active: u.active,
+              protected: u.protected,
+              has_password: u.has_password,
+              can_manage_accounts: u.active && type.can_manage_accounts,
+              can_review_data: u.active && type.can_review_data,
+            }
+          : null,
+      );
+    }
+    if (url.pathname.endsWith("/rpc/can_manage_accounts"))
+      return json(
+        !!managedUsers.get(id)?.active &&
+          !!accountTypes.get(managedUsers.get(id)?.type_id)
+            ?.can_manage_accounts,
+      );
+    if (url.pathname.includes("/rpc/admin_")) {
+      const current = managedUsers.get(id),
+        type = accountTypes.get(current?.type_id);
+      if (!current?.active || !type?.can_manage_accounts)
+        return json({ message: "Forbidden" }, 403);
+      const input = req.postDataJSON();
+      if (url.pathname.endsWith("admin_list_accounts"))
+        return json([...managedUsers.values()]);
+      if (url.pathname.endsWith("admin_list_account_types"))
+        return json([...accountTypes.values()]);
+      if (url.pathname.endsWith("admin_set_account")) {
+        const target = managedUsers.get(input.target_user);
+        if (!target || target.protected)
+          return json({ message: "Protected" }, 403);
+        target.type_id = input.new_type;
+        target.active = input.new_active;
+        return json(null);
+      }
+      if (url.pathname.endsWith("admin_save_account_type")) {
+        accountTypes.set(input.type_key, {
+          id: input.type_key,
+          label: input.type_label,
+          can_review_data: input.review_data,
+          can_manage_accounts: input.manage_accounts,
+          builtin: accountTypes.get(input.type_key)?.builtin || false,
+        });
+        return json(null);
+      }
+      if (url.pathname.endsWith("admin_delete_account_type")) {
+        accountTypes.delete(input.type_key);
+        return json(null);
+      }
+    }
     if (url.pathname.endsWith("/otp")) return json({});
     if (url.pathname.endsWith("/verify")) {
       const input = req.postDataJSON();
@@ -165,6 +326,45 @@ export async function setup(page) {
       });
     }
     throw new Error(`Unhandled mock request: ${req.method()} ${url.pathname}`);
+  });
+  await page.route("**/api/admin/invitations", async (route) => {
+    const req = route.request(),
+      id = actor(req),
+      current = managedUsers.get(id),
+      type = accountTypes.get(current?.type_id),
+      input = req.postDataJSON();
+    const json = (value, status = 200) =>
+      route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify(value),
+      });
+    if (!current?.active || !type?.can_manage_accounts)
+      return json({ error: "administrator" }, 403);
+    let target;
+    if (input.action === "invite") {
+      if ([...managedUsers.values()].some((u) => u.email === input.email))
+        return json({ error: "existing" }, 409);
+      const uid =
+        "44444444-4444-4444-8444-" +
+        String(managedUsers.size).padStart(12, "0");
+      target = {
+        account_id: uid,
+        email: input.email,
+        type_id: input.typeId,
+        active: true,
+        protected: false,
+        created_at: new Date().toISOString(),
+        email_confirmed_at: null,
+        has_password: false,
+      };
+      managedUsers.set(uid, target);
+    } else target = managedUsers.get(input.userId);
+    const origin = new URL(req.url()).origin;
+    if (input.delivery === "email") return json({ sent: true });
+    return json({
+      link: `${origin}/auth/${input.action === "invite" ? "invite" : "recover"}#access_token=${jwt({ id: target.account_id })}&refresh_token=test-refresh&expires_in=3600&token_type=bearer&type=${input.action === "invite" ? "invite" : "recovery"}`,
+    });
   });
   return png;
 }

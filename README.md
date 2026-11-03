@@ -2,7 +2,7 @@
 
 [English documentation](README.en.md) · Interface : français, anglais, espagnol et portugais.
 
-Application centralisée de collecte photographique d’aras, avec un parcours guidé étape par étape sur tout le lot. **Connexion Supabase obligatoire**, animaux/photos/annotations chargés depuis le compte et sauvegardés automatiquement en ligne. Pas de mode local ni hors ligne. [Configuration Supabase et Vercel](docs/SUPABASE.md).
+Application centralisée de collecte photographique d’aras, avec un parcours guidé étape par étape sur tout le lot. **Connexion Supabase par e-mail et mot de passe, sur invitation**, animaux/photos/annotations chargés depuis le compte et sauvegardés automatiquement en ligne. Pas de mode local ni hors ligne. [Configuration Supabase et Vercel](docs/SUPABASE.md).
 
 ## Démarrer
 
@@ -15,13 +15,13 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Sans configuration, l’application affiche un message d’indisponibilité et n’ouvre aucun éditeur local. Validation : `npm test`, `npm run typecheck`, `npm run build`. Production : `npm start`. Les variables `NEXT_PUBLIC_` doivent être définies avant compilation. Aucun changement de schéma n’est requis pour passer de la version à sauvegarde manuelle à cette version automatique si la migration 001 a déjà été appliquée.
+Sans configuration, l’application affiche un message d’indisponibilité et n’ouvre aucun éditeur local. Validation : `npm test`, `npm run typecheck`, `npm run build`. Production : `npm start`. Les variables `NEXT_PUBLIC_` doivent être définies avant compilation. La gestion des comptes et types nécessite la migration 002 et une clé serveur privée pour les liens d’invitation : [guide](docs/ACCOUNT_MANAGEMENT.md). Ne pas réexécuter la migration 001 déjà installée.
 
 Les tests navigateur utilisent une API simulée ; voir le guide pour la compilation de test, puis `npm run smoke`, `node tests/cloud-browser.mjs` et `node tests/i18n-browser.mjs`. Ils ne doivent pas envoyer d’e-mails réels.
 
 ## Expérience utilisateur
 
-1. **Identification** : connexion obligatoire par code e-mail, puis pseudonyme pour l’attribution. La collection du compte est chargée automatiquement, y compris depuis un nouvel appareil.
+1. **Identification** : connexion obligatoire par e-mail et mot de passe, puis pseudonyme pour l’attribution. Un administrateur crée le lien d’invitation ; le destinataire choisit son mot de passe. Les administrateurs seuls disposent du gestionnaire de comptes et de types. La collection du compte est chargée automatiquement, y compris depuis un nouvel appareil.
 2. **Trois onglets** : Dataset est disponible ; Identification et Jumeau numérique sont des espaces annoncés « À venir ».
 3. **Mes animaux** : créer un ou plusieurs aras (UUID stable, nom facultatif, espèce vide si inconnue), puis en choisir un.
 4. **Lot** : préciser une séance et sélectionner plusieurs photos. Chaque import crée un lot UUID, affecté à l’animal choisi. Les séances restent des étiquettes distinctes des lots et de l’identité. Formats JPEG/PNG et autres images que le navigateur décode ; convertir les HEIC/RAW si nécessaire.

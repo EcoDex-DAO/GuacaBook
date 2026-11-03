@@ -1,7 +1,7 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
-import { setup, resetMock } from "./supabase-mock.mjs";
+import { setup, resetMock, signIn } from "./supabase-mock.mjs";
 import { readFile } from "node:fs/promises";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -43,12 +43,7 @@ try {
     resetMock();
     await setup(page);
     await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
-    await page
-      .getByLabel(t("Adresse e-mail"), { exact: true })
-      .fill("a@example.com");
-    await button("Recevoir un code").click();
-    await page.getByLabel(t("Code reçu par e-mail")).fill("123456");
-    await button("Valider le code").click();
+    await signIn(page, "a@example.com", t);
     await page.getByLabel(nameLabel, { exact: true }).waitFor();
     assert.equal(await page.getByLabel("Language / Langue").inputValue(), code);
     assert.equal(await page.locator("html").getAttribute("lang"), code);

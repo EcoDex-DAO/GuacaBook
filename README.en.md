@@ -2,7 +2,7 @@
 
 A centralized photo collection and annotation app for macaw owners. Available in **English, French, Spanish and Portuguese**. The language selector is available on the welcome page and throughout the app. The browser language is used initially (English fallback); an explicit choice is remembered on the device. No translation service or API is used, and photos and names are never sent for translation.
 
-Supabase email accounts and private cloud storage are required; see the [setup guide](docs/SUPABASE.md) for SQL, email/SMTP and Vercel settings. No privileged key is used by the browser.
+Supabase invitation-based email/password accounts and private cloud storage are required; see the [setup guide](docs/SUPABASE.md) for SQL, email/SMTP and Vercel settings. No privileged key is used by the browser.
 
 ## Run locally
 
@@ -19,7 +19,7 @@ Checks: `npm test`, `npm run typecheck`, `npm run build`. With the server runnin
 
 ## Contribute
 
-1. Sign in with an email code, then choose a nickname. Your account collection is loaded automatically.
+1. Accept an administrator’s invitation, choose a password, then sign in with email and password and choose a nickname. Your account collection is loaded automatically.
 2. Add your macaws, then choose an animal and upload a photo batch.
 3. Perform each task across the whole batch: quality, viewpoint, visible body, eyes, periocular regions, then review.
 4. Use the illustrated cards to declare anatomical sides. The animal’s left is on the right of an unmirrored front-view photo. For both eyes, draw a separate left and right box; repeat for periocular regions. Unknown information must remain unknown.
@@ -47,3 +47,9 @@ Dataset is available; Identification and Digital twin are placeholders. Supabase
 Translation catalogs are in `lib/i18n/{en,es,pt}.json`, with French source keys. Update every catalog when adding text; use named placeholders rather than translating contributor data. Language codes and COCO vocabulary are kept separate. Regional browser settings such as `pt-BR` and `es-MX` use the Portuguese and Spanish catalogs. These are initial general translations; review scientific terminology with native-speaking contributors before a large recruitment campaign.
 
 See [README.md](README.md) for the full French format reference. SeaTurtleID2022 is not bundled; verify its license and structure separately before use.
+
+## Account administration
+
+Apply migration `002_account_management.sql` after migration 001. A confirmed Auth user `ecodexdao@gmail.com` must exist first; this UUID becomes the protected initial administrator. New Auth users start inactive and cannot self-assign roles through user metadata. Administrators can manage account types, invite users and suspend accounts. Contributors only access their own collection; reviewers may review contributions without managing accounts.
+
+Invitation links require a **private server-only** `SUPABASE_SECRET_KEY` in Vercel. Never prefix it with `NEXT_PUBLIC_`. The server validates the caller’s JWT and current database permissions before using privileged Auth operations. Configure `/auth/invite` and `/auth/recover` redirect URLs, disable public signup, then redeploy. Password setup and recovery are handled by Supabase Auth. See [the setup guide](docs/ACCOUNT_MANAGEMENT.md). Tests use simulated APIs and do not send real emails.

@@ -1,15 +1,15 @@
 # Configuration centralisée Supabase + Vercel
 
-La connexion est obligatoire. Animaux, photos et annotations sont chargés depuis Supabase et enregistrés automatiquement. Il n’existe plus de mode de démonstration locale, de bouton de sauvegarde manuelle ou de transfert dans l’interface. Aucun nouveau brouillon n’est enregistré dans IndexedDB.
+La connexion par e-mail et mot de passe est obligatoire. Les créations de comptes passent par invitation d’un administrateur. Voir le [guide comptes et types](ACCOUNT_MANAGEMENT.md). Animaux, photos et annotations sont chargés depuis Supabase et enregistrés automatiquement. Il n’existe plus de mode de démonstration locale, de bouton de sauvegarde manuelle ou de transfert dans l’interface. Aucun nouveau brouillon n’est enregistré dans IndexedDB.
 
-**Si la migration 001 a déjà été exécutée avec succès, aucune nouvelle modification SQL n’est nécessaire pour cette mise à jour.** Les deux variables Vercel existantes restent valables. Un redéploiement de l’application suffit.
+**Pour cette évolution des comptes, appliquer la migration 002 après la 001 déjà installée et configurer la clé serveur des invitations.** Les deux paramètres publics restent valables. Ne pas réexécuter la migration 001.
 
 ## Installation initiale seulement
 
 1. Créer un projet Supabase, de préférence dans une région européenne. Vérifier les quotas actuels avant d’inviter les testeurs.
 2. Dans SQL Editor, exécuter une seule fois [001_private_collection.sql](../supabase/migrations/001_private_collection.sql). Ne pas supprimer les tables ni désactiver RLS pour contourner une erreur.
 3. Activer le fournisseur Email dans Authentication. Configurer un SMTP personnalisé pour les destinataires externes à votre équipe Supabase. Les identifiants SMTP restent uniquement dans Supabase.
-4. Dans les modèles **Confirm sign up** et **Magic link or OTP**, inclure `{{ .Token }}` pour le code et éventuellement `{{ .ConfirmationURL }}` pour le lien.
+4. Pour les invitations et mots de passe, suivre le [guide de gestion des comptes](ACCOUNT_MANAGEMENT.md). Le modèle **Reset password** doit conserver `{{ .ConfirmationURL }}`. Désactiver les inscriptions publiques une fois l’administrateur initial créé.
 5. Dans URL Configuration, mettre l’URL HTTPS de production comme Site URL et dans Redirect URLs. Ajouter `http://localhost:3000/**` uniquement pour le développement et les origines Preview précises si utilisées.
 6. Dans Vercel, ajouter pour Production les valeurs publiques :
 
@@ -26,14 +26,7 @@ Le bucket `guacabook-photos` reste privé. Chaque compte accède à sa propre co
 
 Une collection par compte regroupe plusieurs animaux et lots. `contributor_datasets` conserve la collection JSON, sa révision et son statut. Les originaux sont des objets immuables `UUID-compte/UUID-photo`. Les fichiers déjà transférés ne sont pas renvoyés à chaque changement d’annotation.
 
-Après une première connexion, donner accès à votre compte responsable via SQL Editor :
-
-```sql
-insert into public.research_admins(user_id)
-select id from auth.users where lower(email)=lower('VOTRE_EMAIL')
-on conflict do nothing;
-```
-
+L’administrateur initial `ecodexdao@gmail.com` est attribué et protégé par la migration 002. Les comptes et types sont ensuite gérés dans **Gestion des comptes**, uniquement par les administrateurs. La table historique `research_admins` n’est plus le gestionnaire de rôles après cette migration : utiliser l’interface et les RPC protégées.
 Recharger ensuite la page. **Administration des contributions** permet de consulter les collections et d’exporter celles soumises avec consentement. Ces données ne sont pas chargées dans votre collection personnelle.
 
 ## Sauvegarde et soumission

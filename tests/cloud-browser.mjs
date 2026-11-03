@@ -5,7 +5,15 @@ const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
   args: ["--no-sandbox", "--enable-unsafe-swiftshader"],
 });
-import { A, B, rows, setup, counters, faults } from "./supabase-mock.mjs";
+import {
+  A,
+  B,
+  rows,
+  setup,
+  signIn,
+  counters,
+  faults,
+} from "./supabase-mock.mjs";
 async function open() {
   const page = await browser.newPage({
     locale: "fr-FR",
@@ -18,14 +26,7 @@ async function open() {
   return { page, png };
 }
 async function login(page, email) {
-  await page.getByLabel("Adresse e-mail", { exact: true }).fill(email);
-  await page
-    .getByRole("button", { name: "Recevoir un code", exact: true })
-    .click();
-  await page.getByLabel("Code reçu par e-mail").fill("123456");
-  await page
-    .getByRole("button", { name: "Valider le code", exact: true })
-    .click();
+  await signIn(page, email);
   await page
     .getByRole("heading", { name: "Votre collection centralisée" })
     .waitFor();

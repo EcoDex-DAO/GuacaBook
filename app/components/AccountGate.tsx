@@ -9,8 +9,10 @@ import {
   useCallback,
 } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { AccountProfile } from "../../lib/accounts";
 import { cloudConfigured, getSupabase } from "../../lib/supabase";
 import { LanguagePicker, useI18n } from "./I18n";
+import AccountManager from "./AccountManager";
 const AccountContext = createContext<{
   user: User | null;
   client: SupabaseClient | null;
@@ -33,24 +35,36 @@ export default function AccountGate({
   const [client, setClient] = useState<SupabaseClient | null>(null),
     [user, setUser] = useState<User | null>(null),
     [ready, setReady] = useState(!cloudConfigured),
+    [account, setAccount] = useState<AccountProfile | null>(null),
+    [accountReady, setAccountReady] = useState(false),
     [email, setEmail] = useState(""),
-    [code, setCode] = useState(""),
-    [sent, setSent] = useState(false),
+    [password, setPassword] = useState(""),
+    [newPassword, setNewPassword] = useState(""),
+    [repeat, setRepeat] = useState(""),
+    [flow, setFlow] = useState(false),
+    [forgot, setForgot] = useState(false),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [message, setMessage] = useState(""),
+    [manage, setManage] = useState(false);
   useEffect(() => {
     if (!cloudConfigured) return;
     let live = true;
+    const path = window.location.pathname;
+    setFlow(path === "/auth/invite" || path === "/auth/recover");
+    if (window.location.hash.includes("error="))
+      setError("Lien invalide ou expiré. Demandez un nouveau lien.");
     try {
-      const supabase = getSupabase();
-      setClient(supabase);
-      supabase.auth
+      const sb = getSupabase();
+      setClient(sb);
+      sb.auth
         .getSession()
         .then(({ data, error }) => {
-          if (!live) return;
-          if (error) setError("Connexion indisponible. Réessayez.");
-          setUser(data.session?.user ?? null);
-          setReady(true);
+          if (live) {
+            if (error) setError("Connexion indisponible. Réessayez.");
+            setUser(data.session?.user ?? null);
+            setReady(true);
+          }
         })
         .catch(() => {
           if (live) {
@@ -60,14 +74,18 @@ export default function AccountGate({
         });
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
+      } = sb.auth.onAuthStateChange((event, session) => {
         if (live) {
-          if (_event === "SIGNED_OUT") {
-            setSent(false);
+          if (event === "SIGNED_OUT") {
             setEmail("");
-            setCode("");
+            setPassword("");
+            setNewPassword("");
+            setRepeat("");
             setError("");
+            setMessage("");
+            setManage(false);
           }
+          if (event === "PASSWORD_RECOVERY") setFlow(true);
           setUser(session?.user ?? null);
           setReady(true);
         }
@@ -81,29 +99,119 @@ export default function AccountGate({
       setReady(true);
     }
   }, []);
+  const refreshAccount = useCallback(async () => {
+    if (!client || !user) return null;
+    const { data, error } = await client.rpc("my_account");
+    if (error || !data) throw new Error("Account configuration");
+    setAccount(data as AccountProfile);
+    return data as AccountProfile;
+  }, [client, user?.id]);
+  useEffect(() => {
+    if (!user) {
+      setAccount(null);
+      setAccountReady(false);
+      return;
+    }
+    let live = true;
+    setAccount(null);
+    setAccountReady(false);
+    async function load() {
+      try {
+        const { data, error } = await client!.rpc("my_account");
+        if (!live) return;
+        if (error || !data) throw new Error();
+        setAccount(data);
+        setAccountReady(true);
+      } catch {
+        if (live) {
+          setAccountReady(true);
+          setError(
+            "Gestion des comptes indisponible. Vérifiez la migration 002.",
+          );
+        }
+      }
+    }
+    void load();
+    const focus = () => void load();
+    window.addEventListener("focus", focus);
+    const timer = setInterval(focus, 60000);
+    return () => {
+      live = false;
+      clearInterval(timer);
+      window.removeEventListener("focus", focus);
+    };
+  }, [client, user?.id]);
+  async function signOut() {
+    if (!client) return;
+    setBusy(true);
+    try {
+      await beforeSignOut.current?.();
+      const { error } = await client.auth.signOut({ scope: "local" });
+      if (error) throw error;
+      setFlow(false);
+      window.history.replaceState({}, "", "/");
+    } catch {
+      setError(
+        "Déconnexion interrompue : sauvegardez vos modifications avant de quitter.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   async function login(e: React.FormEvent) {
     e.preventDefault();
     if (!client) return;
     setBusy(true);
     setError("");
+    setMessage("");
     try {
-      const { error } = sent
-        ? await client.auth.verifyOtp({
-            email: email.trim(),
-            token: code.trim(),
-            type: "email",
-          })
-        : await client.auth.signInWithOtp({
-            email: email.trim(),
-            options: { emailRedirectTo: window.location.origin },
-          });
-      if (error) throw error;
-      setSent(true);
+      if (forgot) {
+        const { error } = await client.auth.resetPasswordForEmail(
+          email.trim(),
+          { redirectTo: `${window.location.origin}/auth/recover` },
+        );
+        if (error) throw error;
+        setMessage(
+          "Si ce compte existe, un lien de réinitialisation a été envoyé.",
+        );
+      } else {
+        const { error } = await client.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        setPassword("");
+      }
     } catch {
       setError(
-        sent
-          ? "Code invalide ou expiré. Demandez un nouveau code."
-          : "Impossible d’envoyer le code. Vérifiez l’adresse et réessayez plus tard.",
+        forgot
+          ? "Impossible d’envoyer le lien. Réessayez plus tard."
+          : "Adresse e-mail ou mot de passe incorrect.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function choosePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!client) return;
+    if (newPassword !== repeat) {
+      setError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const { error } = await client.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      await refreshAccount();
+      setFlow(false);
+      setNewPassword("");
+      setRepeat("");
+      window.history.replaceState({}, "", "/");
+    } catch {
+      setError(
+        "Impossible de définir le mot de passe. Vérifiez sa longueur ou demandez un nouveau lien.",
       );
     } finally {
       setBusy(false);
@@ -134,10 +242,16 @@ export default function AccountGate({
         <LanguagePicker />
         <div className="brand">◉ GuacaBook</div>
         <section>
-          <h1>{t("Votre compte contributeur")}</h1>
+          <h1>
+            {t(
+              forgot
+                ? "Réinitialiser le mot de passe"
+                : "Connexion à GuacaBook",
+            )}
+          </h1>
           <p>
             {t(
-              "Connectez-vous par e-mail pour retrouver votre collection privée sur plusieurs appareils.",
+              "Les nouveaux comptes sont créés sur invitation d’un administrateur.",
             )}
           </p>
           <form onSubmit={login}>
@@ -145,64 +259,128 @@ export default function AccountGate({
               {t("Adresse e-mail")}
               <input
                 type="email"
-                autoComplete="email"
+                autoComplete="username"
                 required
                 value={email}
-                disabled={sent}
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
-            {sent && (
-              <>
-                <p role="status">
-                  {t(
-                    "Consultez votre e-mail : saisissez le code reçu ou ouvrez le lien de connexion.",
-                  )}
-                </p>
-                <label>
-                  {t("Code reçu par e-mail")}
-                  <input
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    pattern="[0-9]{6,10}"
-                    required
-                  />
-                </label>
-              </>
+            {!forgot && (
+              <label>
+                {t("Mot de passe")}
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
             )}
             <button className="primary" disabled={busy || !client}>
               {t(
                 busy
                   ? "Traitement…"
-                  : sent
-                    ? "Valider le code"
-                    : "Recevoir un code",
+                  : forgot
+                    ? "Envoyer le lien de réinitialisation"
+                    : "Se connecter",
               )}
             </button>
-            {sent && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  setSent(false);
-                  setCode("");
-                  setError("");
-                }}
-              >
-                {t("Changer d’adresse ou demander un nouveau code")}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setForgot(!forgot);
+                setError("");
+                setMessage("");
+              }}
+            >
+              {t(forgot ? "Revenir à la connexion" : "Mot de passe oublié ?")}
+            </button>
           </form>
           {error && <p role="alert">{t(error)}</p>}
-          <p className="small">
-            {t(
-              "Vos photos restent privées : vous et les responsables autorisés pouvez y accéder. Aucun mot de passe à créer.",
-            )}
-          </p>
+          {message && <p role="status">{t(message)}</p>}
         </section>
       </main>
+    );
+  const toolbar = (
+    <div className="accountbar">
+      <span>
+        {t("Compte connecté")} · {user.email}
+      </span>
+      <button disabled={busy} onClick={() => void signOut()}>
+        {t("Se déconnecter")}
+      </button>
+      {error && <span role="alert">{t(error)}</span>}
+    </div>
+  );
+  if (!accountReady || (account && account.user_id !== user.id))
+    return (
+      <main>
+        <LanguagePicker />
+        <p role="status">{t("Vérification des droits du compte…")}</p>
+      </main>
+    );
+  if (!account || !account.active)
+    return (
+      <>
+        {toolbar}
+        <main>
+          <LanguagePicker />
+          <p role="alert">
+            {t(
+              !account
+                ? "Gestion des comptes indisponible. Vérifiez la migration 002."
+                : "Ce compte est suspendu ou n’a pas encore été activé par un administrateur.",
+            )}
+          </p>
+        </main>
+      </>
+    );
+  if (flow || !account.has_password)
+    return (
+      <>
+        {toolbar}
+        <main className="login">
+          <LanguagePicker />
+          <section>
+            <h1>{t("Choisir votre mot de passe")}</h1>
+            <p>{user.email}</p>
+            <p>
+              {t(
+                "Choisissez au moins 12 caractères. Ce mot de passe servira à vos prochaines connexions.",
+              )}
+            </p>
+            <form onSubmit={choosePassword}>
+              <label>
+                {t("Nouveau mot de passe")}
+                <input
+                  type="password"
+                  minLength={12}
+                  autoComplete="new-password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </label>
+              <label>
+                {t("Confirmer le mot de passe")}
+                <input
+                  type="password"
+                  minLength={12}
+                  autoComplete="new-password"
+                  required
+                  value={repeat}
+                  onChange={(e) => setRepeat(e.target.value)}
+                />
+              </label>
+              <button className="primary" disabled={busy}>
+                {t("Enregistrer mon mot de passe")}
+              </button>
+            </form>
+            {error && <p role="alert">{t(error)}</p>}
+          </section>
+        </main>
+      </>
     );
   return (
     <AccountContext.Provider value={{ user, client, registerBeforeSignOut }}>
@@ -210,29 +388,41 @@ export default function AccountGate({
         <span>
           {t("Compte connecté")} · {user.email}
         </span>
-        <button
-          disabled={busy}
-          onClick={async () => {
-            if (!client) return;
-            setBusy(true);
-            try {
-              await beforeSignOut.current?.();
-              const { error } = await client.auth.signOut({ scope: "local" });
-              if (error) throw error;
-            } catch {
-              setError(
-                "Déconnexion interrompue : sauvegardez vos modifications avant de quitter.",
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
+        {account.can_manage_accounts && (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await beforeSignOut.current?.();
+                setManage(!manage);
+              } catch {
+                setError(
+                  "Sauvegardez vos modifications avant de changer d’espace.",
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {t(manage ? "Retour au dataset" : "Gestion des comptes")}
+          </button>
+        )}
+        <button disabled={busy} onClick={() => void signOut()}>
           {t("Se déconnecter")}
         </button>
         {error && <span role="alert">{t(error)}</span>}
       </div>
-      <Fragment key={user.id}>{children}</Fragment>
+      <Fragment key={user.id}>
+        {manage && account.can_manage_accounts ? (
+          <>
+            <LanguagePicker />
+            <AccountManager />
+          </>
+        ) : (
+          children
+        )}
+      </Fragment>
     </AccountContext.Provider>
   );
 }

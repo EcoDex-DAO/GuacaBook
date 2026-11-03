@@ -1,7 +1,7 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
-import { setup } from "./supabase-mock.mjs";
+import { setup, signIn } from "./supabase-mock.mjs";
 import { readFile } from "node:fs/promises";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -18,16 +18,7 @@ try {
   page.on("pageerror", (e) => errors.push(e.message));
   await setup(page);
   await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
-  await page
-    .getByLabel("Adresse e-mail", { exact: true })
-    .fill("a@example.com");
-  await page
-    .getByRole("button", { name: "Recevoir un code", exact: true })
-    .click();
-  await page.getByLabel("Code reçu par e-mail").fill("123456");
-  await page
-    .getByRole("button", { name: "Valider le code", exact: true })
-    .click();
+  await signIn(page);
   await page.getByLabel("Nom ou pseudonyme").fill("Test contributeur");
   await page.getByRole("button", { name: "Entrer dans GuacaBook" }).click();
   await page.getByRole("button", { name: "Identification À venir" }).click();

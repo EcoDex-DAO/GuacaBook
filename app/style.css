@@ -723,3 +723,33 @@ header > button {
 .cloudpanel .photolist li {
   overflow-wrap: anywhere;
 }
+.adminsection {
+  margin-top: 24px;
+}
+.managed-accounts {
+  list-style: none;
+  padding: 0;
+}
+.managed-accounts > li {
+  padding: 20px 0;
+  border-top: 1px solid #dbe3d6;
+  overflow-wrap: anywhere;
+}
+.invitation-result {
+  margin-top: 22px;
+  padding: 16px;
+  background: #eef3e8;
+  border-radius: 8px;
+}
+textarea {
+  width: 100%;
+  padding: 12px;
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid #cbd6c9;
+  border-radius: 5px;
+  overflow-wrap: anywhere;
+}
+.managed-accounts select {
+  max-width: 400px;
+}
