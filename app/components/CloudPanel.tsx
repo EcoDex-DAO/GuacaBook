@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 
 import JSZip from "jszip";
-import { coco } from "../../lib/dataset";
+import { researchDataset } from "../../lib/researchExport";
+import { coco, stepValid } from "../../lib/dataset";
 import { CloudRow, loadCloudDataset } from "../../lib/cloud";
 
 import type { CloudWorkspace } from "../../lib/useCloudWorkspace";
@@ -81,6 +82,50 @@ export function CloudActions({
       zip.file(`images/${p.id}-${p.name}`, p.blob);
     await download(zip, `guacabook-${row.owner_id}.zip`);
   }
+  async function allContributions() {
+    if (!client) throw new Error("Unavailable");
+    const result: CloudRow[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const { data, error } = await client.from("contributor_datasets")
+        .select("*").order("owner_id").range(offset, offset + 99);
+      if (error) throw error;
+      const page = (data || []) as CloudRow[];
+      result.push(...page);
+      if (page.length < 100) return result;
+    }
+  }
+  async function exportAll(final: boolean) {
+    if (!client) return;
+    await w.flush();
+    const contributions = await allContributions();
+    const selected = final ? contributions.filter(row => row.status === "submitted" && row.dataset.consent) : contributions;
+    const zip = new JSZip();
+    if (final) {
+      const collections = [];
+      for (const row of selected) {
+        const validatedRow = { ...row, dataset: { ...row.dataset, photos: row.dataset.photos.filter(p => p.completed && stepValid(p, 5)) } };
+        if (!validatedRow.dataset.photos.length) continue;
+        collections.push({ ownerId: row.owner_id, dataset: await loadCloudDataset(client, validatedRow) });
+      }
+      const dataset = researchDataset(collections);
+      if (!dataset.photos.length) { setMessage("Aucune photo validée et autorisée à exporter."); return; }
+      zip.file("annotations.json", JSON.stringify(coco(dataset), null, 2));
+      for (const p of dataset.photos) zip.file(`images/${p.id}-${p.name}`, p.blob);
+    } else {
+      let count = 0;
+      for (const row of selected) {
+        const dataset = await loadCloudDataset(client, row);
+        for (const p of dataset.photos) { zip.file(`images/${row.owner_id}/${p.id}-${p.name}`, p.blob); count++; }
+      }
+      if (!count) { setMessage("Aucune photo à exporter."); return; }
+    }
+    zip.file("manifest.json", JSON.stringify({
+      purpose: final ? "validated_research_dataset" : "private_collection_review",
+      exported_at: new Date().toISOString(),
+      collections: selected.map(row => ({ owner_id: row.owner_id, revision: row.revision, status: row.status, consent: row.dataset.consent, consented_at: row.consented_at })),
+    }, null, 2));
+    await download(zip, final ? "guacabook-final-coco.zip" : "guacabook-originals-review.zip");
+  }
   return (
     <section className="cloudpanel">
       {w.error && (
@@ -145,6 +190,11 @@ export function CloudActions({
           >
             {t("Actualiser les contributions")}
           </button>
+          <div className="cloudactions">
+            <button disabled={busy} onClick={() => run(() => exportAll(false))}>{t("Exporter tous les originaux pour vérification")}</button>
+            <button disabled={busy} onClick={() => run(() => exportAll(true))}>{t("Exporter le dataset annoté final (COCO)")}</button>
+          </div>
+          <p className="small">{t("Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.")}</p>
           <ul className="photolist">
             {rows.map((row) => (
               <li key={row.owner_id}>

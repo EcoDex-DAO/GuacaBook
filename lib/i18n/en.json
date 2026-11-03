@@ -326,5 +326,15 @@
   "Supprimer ce type non attribué ?": "Delete this unassigned account type?",
   "Envoyer l’invitation par e-mail": "Send invitation by email",
   "Invitation envoyée par e-mail.": "Invitation sent by email.",
-  "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.": "Beta: up to 100 photos per account, 15 MB per photo, JPEG / PNG / WebP."
+  "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.": "Beta: up to 100 photos per account, 15 MB per photo, JPEG / PNG / WebP.",
+  "Supprimer cet animal": "Delete this animal",
+  "Supprimer « {name} » ? Ses annotations seront supprimées. Les photos seront conservées et pourront être associées à un autre animal.": "Delete “{name}”? Its annotations will be removed. Photos will be kept and can be assigned to another animal.",
+  "Photos sans animal associé": "Photos without an assigned animal",
+  "Choisissez un animal pour associer ces photos et reprendre l’annotation.": "Choose an animal to assign these photos and resume annotation.",
+  "Exporter mes données": "Export my data",
+  "Exporter tous les originaux pour vérification": "Export all originals for review",
+  "Exporter le dataset annoté final (COCO)": "Export the final annotated dataset (COCO)",
+  "Aucune photo validée et autorisée à exporter.": "No validated and authorized photos to export.",
+  "Aucune photo à exporter.": "No photos to export.",
+  "Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.": "Review: all accessible photos, including private drafts. Final export: only validated photos from submitted collections with CC BY 4.0 permission."
 }

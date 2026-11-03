@@ -326,5 +326,15 @@
   "Supprimer ce type non attribué ?": "¿Eliminar este tipo de cuenta sin asignar?",
   "Envoyer l’invitation par e-mail": "Enviar invitación por correo",
   "Invitation envoyée par e-mail.": "Invitación enviada por correo.",
-  "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.": "Beta: máximo 100 fotos por cuenta, 15 MB por foto, JPEG / PNG / WebP."
+  "Bêta : 100 photos maximum par compte, 15 Mo par photo, JPEG / PNG / WebP.": "Beta: máximo 100 fotos por cuenta, 15 MB por foto, JPEG / PNG / WebP.",
+  "Supprimer cet animal": "Eliminar este animal",
+  "Supprimer « {name} » ? Ses annotations seront supprimées. Les photos seront conservées et pourront être associées à un autre animal.": "¿Eliminar «{name}»? Se eliminarán sus anotaciones. Las fotos se conservarán y podrán asociarse a otro animal.",
+  "Photos sans animal associé": "Fotos sin animal asociado",
+  "Choisissez un animal pour associer ces photos et reprendre l’annotation.": "Elige un animal para asociar estas fotos y continuar la anotación.",
+  "Exporter mes données": "Exportar mis datos",
+  "Exporter tous les originaux pour vérification": "Exportar todos los originales para revisión",
+  "Exporter le dataset annoté final (COCO)": "Exportar el dataset anotado final (COCO)",
+  "Aucune photo validée et autorisée à exporter.": "No hay fotos validadas y autorizadas para exportar.",
+  "Aucune photo à exporter.": "No hay fotos para exportar.",
+  "Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.": "Revisión: todas las fotos accesibles, incluidos borradores privados. Exportación final: solo fotos validadas de colecciones enviadas con autorización CC BY 4.0."
 }

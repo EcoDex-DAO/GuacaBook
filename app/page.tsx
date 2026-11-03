@@ -11,6 +11,7 @@ import {
   nextBatchTask,
   requiredSides,
   stepValid,
+  removeBird,
 } from "../lib/dataset";
 import ViewReference from "./components/ViewReference";
 import AnnotationCanvas from "./components/AnnotationCanvas";
@@ -481,6 +482,13 @@ function Home() {
                   <button className="primary" onClick={() => choose(b.id)}>
                     {" "}
                     {t("Choisir cet animal →")}{" "}
+                  </button>
+                  <button className="delete-animal" onClick={() => {
+                    if (!confirm(t("Supprimer « {name} » ? Ses annotations seront supprimées. Les photos seront conservées et pourront être associées à un autre animal.", { name: b.name || t("Ara sans nom") }))) return;
+                    update(d => removeBird(d, b.id));
+                    if (bird === b.id) { setBird(""); setActive(""); }
+                  }}>
+                    {t("Supprimer cet animal")}
                   </button>
                 </section>
               ))}
@@ -973,12 +981,12 @@ function Home() {
             <details className="legacy">
               <summary>
                 {" "}
-                {t("Photos de la version précédente sans animal de lot")}{" "}
+                {t("Photos sans animal associé")}{" "}
               </summary>
               <p>
                 {" "}
                 {t(
-                  "Les anciens brouillons sont conservés. Choisissez un animal avant de reprendre.",
+                  "Choisissez un animal pour associer ces photos et reprendre l’annotation.",
                 )}{" "}
               </p>
               {data.photos
@@ -1008,14 +1016,6 @@ function Home() {
           )}
           <footer>
             <div>
-              <h2>{t("Votre dataset, prêt à exporter")}</h2>
-              <p>
-                {data.photos.length} {t("photo(s) ·")}{" "}
-                {data.photos.filter((p) => p.completed).length}{" "}
-                {t(
-                  "validée(s). L’export inclut aussi les brouillons, identifiés comme tels.",
-                )}{" "}
-              </p>
               <label className="consent">
                 <input
                   type="checkbox"
@@ -1045,13 +1045,16 @@ function Home() {
                 )}{" "}
               </p>
             </div>
-            <button
-              className="primary"
-              disabled={!data.consent || !data.photos.length || busy}
-              onClick={() => void download()}
-            >
-              {busy ? t("Traitement…") : t("Exporter le dataset ↗")}
-            </button>
+            <details className="personal-export">
+              <summary>{t("Exporter mes données")}</summary>
+              <button
+                className="primary"
+                disabled={!data.consent || !data.photos.length || busy}
+                onClick={() => void download()}
+              >
+                {busy ? t("Traitement…") : t("Exporter le dataset ↗")}
+              </button>
+            </details>
           </footer>
           <CloudActions workspace={workspace} />
         </>

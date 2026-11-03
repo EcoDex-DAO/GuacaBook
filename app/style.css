@@ -760,3 +760,7 @@ textarea {
 .managed-accounts select {
   max-width: 400px;
 }
+
+.delete-animal { margin-top: 12px; color: #8d3030; }
+.personal-export summary { cursor: pointer; }
+.personal-export button { margin-top: 12px; }

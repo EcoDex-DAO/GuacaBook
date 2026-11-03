@@ -147,6 +147,7 @@ try {
       .waitFor();
     await page.locator("input[type=checkbox]").check();
     const dp = page.waitForEvent("download");
+    await page.getByText(t("Exporter mes données"), { exact: true }).click();
     await button("Exporter le dataset ↗").click();
     const dl = await dp;
     const zip = await JSZip.loadAsync(await readFile(await dl.path()));

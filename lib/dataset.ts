@@ -57,7 +57,7 @@ export function coco(data: Dataset) {
   if (!data.consent) throw new Error("Autorisation requise avant export.");
   return {
     info: {
-      description: "GuacaBook — local annotations",
+      description: "GuacaBook — annotations",
       version: "2.0",
       extensions: "GuacaBook v2; see README.en.md and README.md",
     },
@@ -125,7 +125,7 @@ export function coco(data: Dataset) {
   };
 }
 
-export function stepValid(p: Photo, step: number): boolean {
+export function stepValid(p: Omit<Photo, "blob">, step: number): boolean {
   const has = (category: Box["category"]) =>
     p.boxes.some(
       (b) => b.category === category && b.birdId === (p.birdId || ""),
@@ -172,7 +172,7 @@ export function stepValid(p: Photo, step: number): boolean {
   return [0, 1, 2, 3, 4].every((s) => stepValid(p, s));
 }
 
-export function requiredSides(p: Photo): Box["side"][] {
+export function requiredSides(p: Omit<Photo, "blob">): Box["side"][] {
   if (p.eyeLayout === "both") return ["left", "right"];
   if (p.eyeLayout) return [p.eyeLayout];
   // Legacy drafts preserve their declared laterality.
@@ -195,4 +195,23 @@ export function nextBatchTask(
     if (p) return { id: p.id, step: s };
   }
   return null;
+}
+
+// Originals remain available for reassignment; no identity may reference a deleted bird.
+export function removeBird(data: Dataset, birdId: string): Dataset {
+  const affectedBatches = new Set(data.photos.filter(p => p.birdId === birdId || p.boxes.some(b => b.birdId === birdId)).map(p => p.batchId || `${p.birdId || ""}:${p.sessionId}`));
+  return {
+    ...data,
+    birds: data.birds.filter(b => b.id !== birdId),
+    photos: data.photos.map(p => {
+      const assigned = p.birdId === birdId;
+      const boxes = p.boxes.filter(b => b.birdId !== birdId);
+      if (!assigned && boxes.length === p.boxes.length) return p;
+      return {
+        ...p, boxes, birdId: assigned ? undefined : p.birdId,
+        completed: false, doneSteps: [], workflowStep: 0,
+      };
+    }),
+    batchStages: Object.fromEntries(Object.entries(data.batchStages || {}).filter(([key]) => !affectedBatches.has(key))),
+  };
 }
