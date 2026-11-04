@@ -190,7 +190,9 @@ export async function setup(page) {
               user_id: id,
               type_id: u.type_id,
               label: type.label,
-              active: u.active,
+              active: u.active && !u.banned && !u.deletion_pending,
+              banned: !!u.banned,
+              deletion_pending: !!u.deletion_pending,
               protected: u.protected,
               has_password: u.has_password,
               can_manage_accounts: u.active && type.can_manage_accounts,
@@ -342,6 +344,23 @@ export async function setup(page) {
       });
     }
     throw new Error(`Unhandled mock request: ${req.method()} ${url.pathname}`);
+  });
+  await page.route("**/api/admin/accounts", async route => {
+    const req = route.request(), id = actor(req), input = req.postDataJSON();
+    const current = managedUsers.get(id), target = managedUsers.get(input.userId);
+    const reply = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+    if (!current?.active || !accountTypes.get(current.type_id)?.can_manage_accounts || !target || target.protected || target.account_id === id)
+      return reply({ error: "administrator" }, 403);
+    if (input.confirmEmail !== target.email) return reply({ error: "confirmation" }, 400);
+    if (input.action === "delete") {
+      managedUsers.delete(target.account_id); rows.delete(target.account_id);
+      for (const path of objects.keys()) if (path.startsWith(target.account_id + "/")) objects.delete(path);
+    } else if (input.action === "ban") { target.active = false; target.banned = true; }
+    else if (input.action === "unban") { target.banned = false; target.active = false; }
+    else if (input.action === "suspend") target.active = false;
+    else if (input.action === "activate" && !target.banned && !target.deletion_pending) target.active = true;
+    else return reply({ error: "state" }, 409);
+    return reply({ ok: true });
   });
   await page.route("**/api/admin/invitations", async (route) => {
     const req = route.request(),

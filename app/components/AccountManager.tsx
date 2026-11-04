@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "./AccountGate";
 import { useI18n } from "./I18n";
-import type { AccountType, ManagedAccount } from "../../lib/accounts";
+import type { AccountType, ManagedAccount, AccountOperation } from "../../lib/accounts";
+import AccountConfirmation from "./AccountConfirmation";
 export default function AccountManager() {
   const { client, user } = useAccount(),
     { t } = useI18n();
@@ -23,6 +24,44 @@ export default function AccountManager() {
     [label, setLabel] = useState(""),
     [review, setReview] = useState(false),
     [manage, setManage] = useState(false);
+  const [pending, setPending] = useState<{ account: ManagedAccount; action: AccountOperation | "role"; type?: string } | null>(null);
+  const actionTitles = {
+    suspend: "Suspendre ce compte", activate: "Réactiver ce compte", ban: "Bannir ce compte",
+    unban: "Lever le bannissement", delete: "Supprimer ce compte", role: "Modifier le type de ce compte",
+  };
+  const actionDescriptions = {
+    suspend: "L’accès sera bloqué immédiatement. Les animaux, photos et annotations seront conservés. Vous pourrez réactiver ce compte.",
+    activate: "Ce compte retrouvera l’accès à sa collection avec ses permissions actuelles.",
+    ban: "L’accès aux données et l’authentification seront bloqués. Les données seront conservées. Un administrateur devra lever le bannissement avant toute réactivation.",
+    unban: "Le bannissement sera levé. Le compte restera suspendu jusqu’à sa réactivation explicite.",
+    delete: "Le compte, tous ses animaux, photos, annotations et fichiers en ligne seront supprimés définitivement. Les archives déjà téléchargées ne seront pas effacées.",
+    role: "Les permissions de ce compte seront modifiées selon le type sélectionné.",
+  };
+  async function confirmAction() {
+    if (!pending || !client) return;
+    setBusy(true); setError("");
+    try {
+      if (pending.action === "role") {
+        const { error } = await client.rpc("admin_set_account", {
+          target_user: pending.account.account_id, new_type: pending.type, new_active: pending.account.active,
+        });
+        if (error) throw error;
+      } else {
+        const { data: { session } } = await client.auth.getSession();
+        if (!session) throw new Error();
+        const response = await fetch("/api/admin/accounts", {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ userId: pending.account.account_id, action: pending.action, confirmEmail: pending.account.email }),
+        });
+        const result = await response.json();
+        if (!response.ok) {
+          if (result.error === "migration_required") setError("Exécutez la migration 003 dans Supabase pour activer la modération des comptes.");
+          throw new Error();
+        }
+      }
+      await refresh(); setPending(null); setMessage("Compte mis à jour.");
+    } finally { setBusy(false); }
+  }
   const editing = types.find((type) => type.id === typeId);
   const typeName = (type: AccountType) => {
     const defaults: Record<string, string> = {
@@ -242,12 +281,13 @@ export default function AccountManager() {
                             : "Mot de passe à définir",
                         )}
                         {a.protected ? ` · ${t("Administrateur protégé")}` : ""}
+                        {" · "}{t(a.deletion_pending ? "Suppression à terminer" : a.banned ? "Banni" : a.active ? "Actif" : "Suspendu")}
                       </p>
                       <label>
                         {t("Type de compte")}
                         <select
                           aria-label={`${t("Type de compte")} · ${a.email}`}
-                          disabled={a.protected || busy}
+                          disabled={a.protected || a.banned || a.deletion_pending || busy}
                           value={edit.type}
                           onChange={(e) =>
                             setEdits({
@@ -263,43 +303,10 @@ export default function AccountManager() {
                           ))}
                         </select>
                       </label>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={edit.active}
-                          disabled={
-                            a.protected || a.account_id === user?.id || busy
-                          }
-                          onChange={(e) =>
-                            setEdits({
-                              ...edits,
-                              [a.account_id]: {
-                                ...edit,
-                                active: e.target.checked,
-                              },
-                            })
-                          }
-                        />
-                        {t("Compte actif")}
-                      </label>
                       <div className="cloudactions">
                         <button
-                          disabled={a.protected || busy}
-                          onClick={() =>
-                            run(async () => {
-                              const { error } = await client!.rpc(
-                                "admin_set_account",
-                                {
-                                  target_user: a.account_id,
-                                  new_type: edit.type,
-                                  new_active: edit.active,
-                                },
-                              );
-                              if (error) throw error;
-                              await refresh();
-                              setMessage("Compte mis à jour.");
-                            })
-                          }
+                          disabled={a.protected || a.banned || a.deletion_pending || busy}
+                          onClick={() => setPending({ account: a, action: "role", type: edit.type })}
                         >
                           {t("Enregistrer le compte")}
                         </button>
@@ -315,6 +322,13 @@ export default function AccountManager() {
                         >
                           {t("Créer un lien de mot de passe")}
                         </button>
+                        {(a.deletion_pending ? ["delete"] : a.banned ? ["unban", "delete"] : a.active ? ["suspend", "ban", "delete"] : ["activate", "ban", "delete"]).map(action => (
+                          <button key={action} className={action === "delete" ? "delete-animal" : undefined}
+                            disabled={busy || a.protected || a.account_id === user?.id}
+                            onClick={() => setPending({ account: a, action: action as AccountOperation })}>
+                            {t(action === "delete" && a.deletion_pending ? "Terminer la suppression" : actionTitles[action as AccountOperation])}
+                          </button>
+                        ))}
                       </div>
                     </li>
                   );
@@ -445,6 +459,11 @@ export default function AccountManager() {
           </section>
         </div>
       )}
+      {pending && <AccountConfirmation
+        title={t(actionTitles[pending.action])} description={t(actionDescriptions[pending.action])}
+        email={pending.account.email} permanent={pending.action === "delete"} errorMessage={error}
+        onCancel={() => setPending(null)} onConfirm={confirmAction}
+      />}
     </main>
   );
 }

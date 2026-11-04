@@ -25,6 +25,7 @@ test("PostgreSQL : administrateur protégé, types et comptes administrables uni
     for (const file of [
       "001_private_collection.sql",
       "002_account_management.sql",
+      "003_account_moderation.sql",
     ])
       await db.exec(
         await readFile(
@@ -68,6 +69,15 @@ test("PostgreSQL : administrateur protégé, types et comptes administrables uni
     await assert.rejects(
       db.query("select public.admin_delete_account_type('contributor')"),
     );
+    await db.query("select public.admin_set_account($1,'admin',true)", [b]);
+    await as(b);
+    for (const operation of ["suspend", "ban", "delete"]) {
+      await assert.rejects(db.query("select public.admin_moderate_account($1,$2)", [b, operation]));
+      await assert.rejects(db.query("select public.admin_moderate_account($1,$2)", [root, operation]));
+    }
+    await as(root);
+    await db.query("select public.admin_moderate_account($1,'suspend')", [b]);
+    await db.query("select public.admin_set_account($1,'contributor',true)", [b]);
     await as(a);
     await assert.rejects(
       db.query("select * from public.admin_list_accounts()"),
@@ -167,6 +177,25 @@ test("PostgreSQL : administrateur protégé, types et comptes administrables uni
       b,
     ]);
     await db.query("select public.admin_delete_account_type('scientist')");
+    await assert.rejects(db.query("select public.admin_moderate_account($1,'ban')", [root]));
+    await db.query("select public.admin_moderate_account($1,'ban')", [b]);
+    await assert.rejects(db.query("select public.admin_set_account($1,'contributor',true)", [b]));
+    await as(b);
+    const bannedProfile = (await db.query<{ my_account: { active: boolean; banned: boolean } }>("select public.my_account()")).rows[0].my_account;
+    assert.equal(bannedProfile.banned, true);
+    assert.equal(bannedProfile.active, false);
+    assert.equal((await db.query("select * from public.contributor_datasets")).rows.length, 0);
+    await assert.rejects(db.query("select public.admin_moderate_account($1,'activate')", [b]));
+    await as(root);
+    await db.query("select public.admin_moderate_account($1,'unban')", [b]);
+    assert.equal((await db.query<{ active: boolean }>("select active from public.admin_list_accounts() where account_id=$1", [b])).rows[0].active, false);
+    await db.query("select public.admin_moderate_account($1,'activate')", [b]);
+    await db.query("select public.admin_moderate_account($1,'delete')", [b]);
+    await assert.rejects(db.query("select public.admin_moderate_account($1,'activate')", [b]));
+    await assert.rejects(db.query("select public.admin_set_account($1,'contributor',true)", [b]));
+    await as(b);
+    assert.equal((await db.query("select * from storage.objects")).rows.length, 0);
+    await assert.rejects(db.query("select public.submit_dataset(1)"));
     await db.exec("reset role;set role anon");
     await assert.rejects(db.query("select public.my_account()"));
   } finally {

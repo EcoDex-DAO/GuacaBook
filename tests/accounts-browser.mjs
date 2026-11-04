@@ -7,6 +7,8 @@ import {
   accountTypes,
   A,
   B,
+  rows,
+  objects,
 } from "./supabase-mock.mjs";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -39,7 +41,8 @@ try {
     .locator(".managed-accounts>li")
     .filter({ has: page.getByText("ecodexdao@gmail.com", { exact: true }) });
   assert.equal(await root.getByRole("combobox").isDisabled(), true);
-  assert.equal(await root.getByRole("checkbox").isDisabled(), true);
+  for (const name of ["Suspendre ce compte", "Bannir ce compte", "Supprimer ce compte"])
+    assert.equal(await root.getByRole("button", { name, exact: true }).isDisabled(), true);
   await page
     .getByRole("button", { name: "Types de compte", exact: true })
     .click();
@@ -119,10 +122,11 @@ try {
   const row = page
     .locator(".managed-accounts>li")
     .filter({ has: page.getByText("b@example.com", { exact: true }) });
-  await row.getByRole("checkbox").uncheck();
-  await row
-    .getByRole("button", { name: "Enregistrer le compte", exact: true })
-    .click();
+  await row.getByRole("button", { name: "Suspendre ce compte", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Annuler", exact: true }).click();
+  assert.equal(managedUsers.get(B).active, true);
+  await row.getByRole("button", { name: "Suspendre ce compte", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirmer", exact: true }).click();
   await page
     .getByRole("status")
     .filter({ hasText: "Compte mis à jour." })
@@ -141,6 +145,42 @@ try {
       .count(),
     0,
   );
+  async function moderate(name, cancel = false) {
+    await row.getByRole("button", { name, exact: true }).click();
+    const modal = page.getByRole("dialog");
+    await modal.getByRole("button", { name: cancel ? "Annuler" : "Confirmer", exact: true }).click();
+    await modal.waitFor({ state: "hidden" });
+  }
+  await moderate("Réactiver ce compte");
+  assert.equal(managedUsers.get(B).active, true);
+  await moderate("Bannir ce compte", true);
+  assert.equal(!!managedUsers.get(B).banned, false);
+  await moderate("Bannir ce compte");
+  assert.equal(managedUsers.get(B).banned, true);
+  assert.equal(managedUsers.get(B).active, false);
+  await moderate("Lever le bannissement", true);
+  assert.equal(managedUsers.get(B).banned, true);
+  await moderate("Lever le bannissement");
+  assert.equal(managedUsers.get(B).banned, false);
+  assert.equal(managedUsers.get(B).active, false);
+  await moderate("Réactiver ce compte");
+  await row.getByRole("button", { name: "Supprimer ce compte", exact: true }).click();
+  let modal = page.getByRole("dialog");
+  assert.equal(await modal.getByRole("button", { name: "Confirmer", exact: true }).isDisabled(), true);
+  await modal.getByRole("button", { name: "Annuler", exact: true }).click();
+  assert.ok(managedUsers.has(B));
+  objects.set(`${B}/orphan`, Buffer.from("original"));
+  rows.set(B, { owner_id: B });
+  await row.getByRole("button", { name: "Supprimer ce compte", exact: true }).click();
+  modal = page.getByRole("dialog");
+  await modal.getByLabel("Recopiez l’adresse e-mail pour confirmer la suppression").fill("wrong@example.com");
+  assert.equal(await modal.getByRole("button", { name: "Confirmer", exact: true }).isDisabled(), true);
+  await modal.getByLabel("Recopiez l’adresse e-mail pour confirmer la suppression").fill("b@example.com");
+  await modal.getByRole("button", { name: "Confirmer", exact: true }).click();
+  await modal.waitFor({ state: "hidden" });
+  assert.equal(managedUsers.has(B), false);
+  assert.equal(rows.has(B), false);
+  assert.equal(objects.has(`${B}/orphan`), false);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.ok(
     await page.evaluate(
@@ -149,7 +189,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: gestion admin, type personnalisé, invitation, choix du mot de passe, reconnexion, suspension, protection du compte initial et mobile (API simulée).",
+    "PASS: gestion admin, type personnalisé, invitation, choix du mot de passe, reconnexion, confirmations, suspension/réactivation, bannissement/levée, suppression complète, protection du compte initial et mobile (API simulée).",
   );
 } finally {
   await browser.close();

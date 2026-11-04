@@ -11,6 +11,8 @@ export type AccountProfile = {
   label: string;
   active: boolean;
   protected: boolean;
+  banned?: boolean;
+  deletion_pending?: boolean;
   can_manage_accounts: boolean;
   can_review_data: boolean;
   has_password: boolean;
@@ -21,7 +23,11 @@ export type ManagedAccount = {
   type_id: string;
   active: boolean;
   protected: boolean;
+  banned?: boolean;
+  deletion_pending?: boolean;
   created_at: string;
   email_confirmed_at: string | null;
   has_password: boolean;
 };
+
+export type AccountOperation = "suspend" | "activate" | "ban" | "unban" | "delete";

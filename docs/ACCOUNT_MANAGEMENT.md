@@ -73,3 +73,41 @@ Le mot de passe est géré par Supabase Auth ; il n’est pas enregistré dans l
 - « Mot de passe oublié » délivre un e-mail et ramène au formulaire de nouveau mot de passe.
 
 `npm test` vérifie les permissions SQL dans PostgreSQL embarqué et les contrôles de l’API serveur par injection de clients simulés. `node tests/accounts-browser.mjs` vérifie l’interface et le parcours invité sur l’API simulée. Les tests navigateur ne créent aucun vrai compte et n’envoient aucun e-mail. La livraison SMTP, les liens Supabase réels et la configuration Vercel restent à vérifier sur le projet hébergé après installation.
+
+## 7. Suspension, bannissement et suppression (migration 003)
+
+Pour activer ces fonctions sur un projet existant :
+
+1. Dans Supabase, ouvrir **SQL Editor**, puis **New query**.
+2. Copier tout le fichier `supabase/migrations/003_account_moderation.sql`.
+3. Coller le SQL et cliquer sur **Run**. Il doit afficher **Success**.
+4. Recharger GuacaBook, puis ouvrir **Gestion des comptes** avec un administrateur.
+
+La clé serveur `SUPABASE_SECRET_KEY` déjà utilisée pour les invitations est également
+requise pour le bannissement Auth et la suppression des utilisateurs/fichiers. Elle
+reste exclusivement côté serveur. Aucun nouveau secret n’est requis.
+
+Chaque action ouvre une confirmation intégrée. La suppression exige aussi de
+recopier l’adresse e-mail du compte ciblé.
+
+- **Suspendre** : coupe immédiatement l’accès aux données, même avec un JWT existant,
+  et conserve la collection. Le compte peut encore s’authentifier mais voit un écran
+  d’accès bloqué. **Réactiver** rétablit son accès.
+- **Bannir** : bloque immédiatement les données et applique un bannissement Auth de
+  longue durée (100 ans), jusqu’à sa levée explicite par un administrateur.
+  **Lever le bannissement** laisse le compte suspendu : une réactivation distincte
+  reste nécessaire. L’identité Auth et son adresse restent réservées. Cela ne bloque
+  pas une personne qui tenterait de revenir avec une autre adresse ; les nouvelles
+  inscriptions doivent rester sur invitation.
+- **Supprimer** : marque d’abord le compte comme bloqué pour suppression, efface tous
+  les objets de son dossier Storage, y compris les fichiers devenus orphelins et les
+  sous-dossiers, puis supprime définitivement l’utilisateur Auth. Les collections et
+  profils sont supprimés par les clés étrangères `ON DELETE CASCADE`.
+  En cas d’échec, le compte reste bloqué et le bouton **Terminer la suppression**
+  permet de reprendre. Aucune réactivation n’est permise tant que la suppression est
+  en attente. Les archives déjà téléchargées restent hors du contrôle du projet.
+
+Les administrateurs peuvent modérer d’autres administrateurs. Le compte initial
+protégé et le compte de l’administrateur connecté ne peuvent pas être suspendus,
+bannis ou supprimés par ces actions. Les permissions sont relues et contrôlées côté
+serveur ; masquer les boutons n’est pas la protection de sécurité.

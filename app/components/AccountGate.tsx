@@ -330,7 +330,7 @@ export default function AccountGate({
             {t(
               !account
                 ? "Gestion des comptes indisponible. Vérifiez la migration 002."
-                : "Ce compte est suspendu ou n’a pas encore été activé par un administrateur.",
+                : account?.deletion_pending ? "Ce compte est en cours de suppression." : account?.banned ? "Ce compte est banni. Contactez un administrateur." : "Ce compte est suspendu ou n’a pas encore été activé par un administrateur.",
             )}
           </p>
         </main>
