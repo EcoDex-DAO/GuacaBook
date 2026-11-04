@@ -122,10 +122,11 @@ export function CloudActions({
     zip.file("manifest.json", JSON.stringify({
       purpose: final ? "validated_research_dataset" : "private_collection_review",
       exported_at: new Date().toISOString(),
-      collections: selected.map(row => ({ owner_id: row.owner_id, revision: row.revision, status: row.status, consent: row.dataset.consent, consented_at: row.consented_at })),
+      collections: selected.map(row => ({ owner_id: row.owner_id, revision: row.revision, status: row.status, contributor: row.dataset.profile || null, consent: row.dataset.consent, consented_at: row.consented_at })),
     }, null, 2));
     await download(zip, final ? "guacabook-final-coco.zip" : "guacabook-originals-review.zip");
   }
+  if (!admin && !w.error && !busy && !message && !error) return null;
   return (
     <section className="cloudpanel">
       {w.error && (
@@ -147,25 +148,6 @@ export function CloudActions({
             {t("Réessayer la sauvegarde")}
           </button>
         )}
-        <button
-          disabled={
-            busy ||
-            !w.data.consent ||
-            !w.data.photos.length ||
-            w.saving ||
-            !!w.error
-          }
-          onClick={() =>
-            run(async () => {
-              await w.submit();
-              setMessage(
-                "Collection soumise avec votre autorisation CC BY 4.0.",
-              );
-            })
-          }
-        >
-          {t("Soumettre ma collection à la recherche")}
-        </button>
         {w.error && (
           <button disabled={busy} onClick={() => run(backup)}>
             {t("Télécharger une copie de secours")}

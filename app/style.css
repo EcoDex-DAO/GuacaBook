@@ -764,3 +764,7 @@ textarea {
 .delete-animal { margin-top: 12px; color: #8d3030; }
 .personal-export summary { cursor: pointer; }
 .personal-export button { margin-top: 12px; }
+
+.delete-dialog { max-width: 540px; width: calc(100% - 32px); border: 1px solid #dbe3d6; border-radius: 18px; padding: 28px; color: inherit; }
+.delete-dialog::backdrop { background: #102d2d88; }
+.research-consent section { max-width: 760px; }

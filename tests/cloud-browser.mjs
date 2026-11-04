@@ -60,15 +60,6 @@ try {
   assert.equal(rows.get(A).dataset.photos.length, 1);
   assert.equal("blob" in rows.get(A).dataset.photos[0], false);
   assert.ok(rows.get(A).dataset.photos[0].objectPath.startsWith(A + "/"));
-  await page.locator("input[type=checkbox]").check();
-  await save(page);
-  await page
-    .getByRole("button", { name: "Soumettre ma collection à la recherche" })
-    .click();
-  await page
-    .getByRole("status")
-    .filter({ hasText: "Collection soumise avec votre autorisation" })
-    .waitFor();
   assert.equal(rows.get(A).status, "submitted");
   assert.equal(counters.uploads, 1);
   await page

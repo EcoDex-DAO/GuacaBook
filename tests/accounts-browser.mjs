@@ -95,6 +95,9 @@ try {
   await invited
     .getByRole("button", { name: "Enregistrer mon mot de passe", exact: true })
     .click();
+  await invited.locator(".research-consent").waitFor();
+  await invited.locator('.research-consent input[type="checkbox"]').check();
+  await invited.getByRole("button", { name: "Accepter et continuer", exact: true }).click();
   await invited.getByLabel("Nom ou pseudonyme").waitFor();
   await invited
     .getByRole("button", { name: "Se déconnecter", exact: true })
@@ -127,7 +130,7 @@ try {
   assert.equal(managedUsers.get(B).active, false);
   const blocked = await open();
   await blocked.goto(base);
-  await signIn(blocked, "b@example.com");
+  await signIn(blocked, "b@example.com", key => key, "test-password-123", false);
   await blocked
     .getByRole("alert")
     .filter({ hasText: "Ce compte est suspendu" })

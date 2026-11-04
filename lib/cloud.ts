@@ -134,3 +134,14 @@ export async function saveCloudDataset(
   if (error) throw error;
   return row as CloudRow;
 }
+
+// The deletion queue is committed with the dataset before touching Storage.
+// It survives a failed request or reload, so cleanup can safely be retried.
+export async function removeDeletedPhotos(client: SupabaseClient, ownerId: string, data: Dataset) {
+  const ids = data.deletedPhotoIds || [];
+  if (ids.some(id => data.photos.some(p => p.id === id))) throw new Error("Invalid photo deletion");
+  if (!ids.length) return;
+  const paths = ids.map(id => objectPath(ownerId, id));
+  const { error } = await client.storage.from(BUCKET).remove(paths);
+  if (error) throw error;
+}

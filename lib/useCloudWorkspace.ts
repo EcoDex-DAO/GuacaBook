@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { useAccount } from "../app/components/AccountGate";
 import { Dataset, emptyDataset } from "./dataset";
-import { readCloudRow, loadCloudDataset, saveCloudDataset } from "./cloud";
+import { readCloudRow, loadCloudDataset, saveCloudDataset, removeDeletedPhotos } from "./cloud";
 export function useCloudWorkspace() {
   const { client, user } = useAccount();
   const [data, setData] = useState<Dataset>(emptyDataset),
@@ -18,7 +18,7 @@ export function useCloudWorkspace() {
     blocked = useRef(false),
     alive = useRef(true),
     canSave = useRef(false);
-  const dirty = data !== saved.current && ready;
+  const dirty = ready && (data !== saved.current || !!data.deletedPhotoIds?.length);
   const report = useCallback((e: unknown) => {
     const text = e instanceof Error ? e.message : "";
     setError(
@@ -78,11 +78,11 @@ export function useCloudWorkspace() {
       throw new Error("Collection non chargée.");
     blocked.current = false;
     setError("");
-    if (latest.current === saved.current) return;
+    if (latest.current === saved.current && !latest.current.deletedPhotoIds?.length) return;
     setSaving(true);
     const work = Promise.resolve().then(async () => {
       try {
-        while (alive.current && latest.current !== saved.current) {
+        while (alive.current && (latest.current !== saved.current || latest.current.deletedPhotoIds?.length)) {
           const snapshot = latest.current;
           const row = await saveCloudDataset(
             client,
@@ -94,6 +94,19 @@ export function useCloudWorkspace() {
           revision.current = row.revision;
           saved.current = snapshot;
           setRemoteStatus(row.status);
+          if (snapshot.deletedPhotoIds?.length) {
+            await removeDeletedPhotos(client, user.id, snapshot);
+            const removed = new Set(snapshot.deletedPhotoIds);
+            const cleaned = { ...latest.current, deletedPhotoIds: (latest.current.deletedPhotoIds || []).filter(id => !removed.has(id)) };
+            latest.current = cleaned;
+            setData(cleaned);
+          }
+          if (snapshot.consent && snapshot.researchConsent && snapshot.photos.length) {
+            const { data: submittedRevision, error: submitError } = await client.rpc("submit_dataset", { expected_revision: revision.current });
+            if (submitError) { saved.current = null; throw submitError; }
+            revision.current = Number(submittedRevision);
+            setRemoteStatus("submitted");
+          }
         }
       } catch (e) {
         if (alive.current) report(e);
@@ -107,7 +120,7 @@ export function useCloudWorkspace() {
     return work;
   }, [client, user?.id, report]);
   useEffect(() => {
-    if (!ready || !dirty || saving || blocked.current) return;
+    if (!ready || (!dirty && !data.deletedPhotoIds?.length) || saving || blocked.current) return;
     const timer = setTimeout(() => {
       if (canSave.current && !blocked.current) void flush().catch(() => {});
     }, 650);
@@ -117,7 +130,7 @@ export function useCloudWorkspace() {
     const warn = (e: BeforeUnloadEvent) => {
       if (
         !canSave.current ||
-        (latest.current === saved.current && !running.current)
+        (latest.current === saved.current && !running.current && !latest.current.deletedPhotoIds?.length)
       )
         return;
       e.preventDefault();
@@ -142,32 +155,6 @@ export function useCloudWorkspace() {
       }
     }
   }, [read, report]);
-  const submit = useCallback(async () => {
-    await flush();
-    if (!client || !latest.current.consent || !latest.current.photos.length)
-      throw new Error("Consent required");
-    setSaving(true);
-    const task = Promise.resolve().then(async () => {
-      try {
-        const { data, error } = await client.rpc("submit_dataset", {
-          expected_revision: revision.current,
-        });
-        if (error) throw error;
-        if (alive.current) {
-          revision.current = Number(data);
-          setRemoteStatus("submitted");
-        }
-      } catch (e) {
-        if (alive.current) report(e);
-        throw e;
-      } finally {
-        running.current = null;
-        if (alive.current) setSaving(false);
-      }
-    });
-    running.current = task;
-    return task;
-  }, [client, flush, report]);
   return {
     current: () => latest.current,
     data,
@@ -178,7 +165,6 @@ export function useCloudWorkspace() {
     error,
     flush,
     reload,
-    submit,
     remoteStatus,
   };
 }

@@ -3,7 +3,7 @@ export const A = "11111111-1111-4111-8111-111111111111",
 export const rows = new Map(),
   objects = new Map();
 export const counters = { uploads: 0 };
-export const faults = { writes: 0, delay: 0 };
+export const faults = { writes: 0, delay: 0, deletes: 0 };
 export const managedUsers = new Map();
 export const accountTypes = new Map();
 const passwords = new Map();
@@ -58,12 +58,21 @@ export async function signIn(
   email = "a@example.com",
   t = (key) => key,
   password = "test-password-123",
+  acceptResearch = true,
 ) {
   await page.getByLabel(t("Adresse e-mail"), { exact: true }).fill(email);
   await page.getByLabel(t("Mot de passe"), { exact: true }).fill(password);
   await page
     .getByRole("button", { name: t("Se connecter"), exact: true })
     .click();
+  if (acceptResearch) {
+    await page.locator(".research-consent, .beta-notice").first().waitFor();
+    if (await page.locator(".research-consent").count()) {
+      await page.locator('.research-consent input[type="checkbox"]').check();
+      await page.getByRole("button", { name: t("Accepter et continuer"), exact: true }).click();
+      await page.locator(".research-consent").waitFor({ state: "hidden" });
+    }
+  }
 }
 export function resetMock() {
   initializeAccounts();
@@ -71,6 +80,7 @@ export function resetMock() {
   objects.clear();
   counters.uploads = 0;
   faults.writes = 0;
+  faults.deletes = 0;
   faults.delay = 0;
 }
 const jwt = (user) =>
@@ -301,6 +311,12 @@ export async function setup(page) {
         return json(null);
       Object.assign(row, input, { status: "draft", consented_at: null });
       return json(row);
+    }
+    if (req.method() === "DELETE" && url.pathname.endsWith("/storage/v1/object/guacabook-photos")) {
+      if (faults.deletes > 0) { faults.deletes--; return json({ message: "Storage unavailable" }, 503); }
+      const paths = req.postDataJSON().prefixes;
+      for (const path of paths) objects.delete(path);
+      return json(paths.map(name => ({ name })));
     }
     if (url.pathname.includes("/storage/v1/object/")) {
       const path = url.pathname.split("guacabook-photos/")[1];

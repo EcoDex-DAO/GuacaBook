@@ -18,6 +18,8 @@ import AnnotationCanvas from "./components/AnnotationCanvas";
 import BirdGlyph from "./components/BirdGlyph";
 import EyeGuide from "./components/EyeGuide";
 import AccountGate, { useAccount } from "./components/AccountGate";
+import ResearchConsent, { RESEARCH_CONSENT_VERSION } from "./components/ResearchConsent";
+import DeleteAnimalDialog from "./components/DeleteAnimalDialog";
 import CloudPanel, { CloudActions } from "./components/CloudPanel";
 const uid = () => crypto.randomUUID();
 const stepKeys = [
@@ -77,6 +79,8 @@ function Home() {
     [side, setSide] = useState<Box["side"]>("unknown"),
     [message, setMessage] = useState("");
   const [failedFiles, setFailedFiles] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [deletingBird, setDeletingBird] = useState<{ id: string; name: string; count: number } | null>(null);
 
   const photo = data.photos.find((p) => p.id === active);
   const batchKey = photo
@@ -107,6 +111,7 @@ function Home() {
     : [];
   useEffect(() => {
     if (!ready) return;
+    setConsentConfirmed(data.consent && data.researchConsent?.version === RESEARCH_CONSENT_VERSION);
     setProfile(data.profile);
     setLogged(!!data.profile);
     setBird(data.birds[0]?.id || "");
@@ -324,6 +329,7 @@ function Home() {
         )}
       </main>
     );
+  if (!consentConfirmed) return <ResearchConsent workspace={workspace} onAccepted={() => setConsentConfirmed(true)} />;
   if (!logged)
     return (
       <main className="login">
@@ -483,11 +489,10 @@ function Home() {
                     {" "}
                     {t("Choisir cet animal →")}{" "}
                   </button>
-                  <button className="delete-animal" onClick={() => {
-                    if (!confirm(t("Supprimer « {name} » ? Ses annotations seront supprimées. Les photos seront conservées et pourront être associées à un autre animal.", { name: b.name || t("Ara sans nom") }))) return;
-                    update(d => removeBird(d, b.id));
-                    if (bird === b.id) { setBird(""); setActive(""); }
-                  }}>
+                  <button className="delete-animal" onClick={() => setDeletingBird({
+                    id: b.id, name: b.name || t("Ara sans nom"),
+                    count: data.photos.filter(p => p.birdId === b.id || p.boxes.some(box => box.birdId === b.id)).length,
+                  })}>
                     {t("Supprimer cet animal")}
                   </button>
                 </section>
@@ -1015,36 +1020,6 @@ function Home() {
             </details>
           )}
           <footer>
-            <div>
-              <label className="consent">
-                <input
-                  type="checkbox"
-                  checked={data.consent}
-                  onChange={(e) =>
-                    update({ ...data, consent: e.target.checked })
-                  }
-                />{" "}
-                {t(
-                  "Je dispose des droits nécessaires et j’autorise l’utilisation de ces photos sous licence",
-                )}{" "}
-                <a
-                  href="https://creativecommons.org/licenses/by/4.0/"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  CC BY 4.0
-                </a>{" "}
-                {t(
-                  ", redistribution et usage commercial avec attribution inclus.",
-                )}{" "}
-              </label>
-              <p className="small">
-                {" "}
-                {t(
-                  "Votre collection est centralisée dans votre compte. Vérifiez l’état de sauvegarde avant de fermer la page. Les originaux peuvent contenir des métadonnées privées.",
-                )}{" "}
-              </p>
-            </div>
             <details className="personal-export">
               <summary>{t("Exporter mes données")}</summary>
               <button
@@ -1059,6 +1034,16 @@ function Home() {
           <CloudActions workspace={workspace} />
         </>
       )}
+      {deletingBird && <DeleteAnimalDialog
+        name={deletingBird.name} count={deletingBird.count}
+        onCancel={() => setDeletingBird(null)}
+        onDelete={async () => {
+          update(d => removeBird(d, deletingBird.id));
+          await workspace.flush();
+          if (bird === deletingBird.id) { setBird(""); setActive(""); setScreen("animals"); }
+          setDeletingBird(null);
+        }}
+      />}
       <p className="savestatus" role="status">
         {t(status)}
       </p>

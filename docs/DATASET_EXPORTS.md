@@ -2,11 +2,36 @@
 
 ## Suppression d’un animal
 
-Dans « Mes animaux », le bouton « Supprimer cet animal » demande une confirmation.
-La suppression retire l’animal et ses cadres d’annotation. Les originaux restent
-sur le compte : ils apparaissent dans « Photos sans animal associé » et peuvent
-être associés à un autre animal. Les annotations des autres animaux sont conservées.
-La modification est sauvegardée automatiquement. Aucun fichier Storage n’est effacé.
+Dans « Mes animaux », le bouton « Supprimer cet animal » ouvre une fenêtre intégrée
+avec les boutons Annuler et Supprimer définitivement. La confirmation native du
+navigateur n’est plus utilisée : elle bloquait les mises à jour de l’interface.
+
+La suppression retire l’animal et toutes les photos qui lui sont associées, ou
+qui contiennent une de ses annotations, avec tous les cadres de ces photos.
+Les photos partagées entre plusieurs animaux sont donc aussi retirées ; la
+confirmation le précise. Les autres animaux et leurs autres photos restent intacts.
+Les entrées de lots devenus vides sont supprimées.
+
+Les identifiants des fichiers à effacer sont enregistrés avec la collection avant
+leur suppression dans Supabase Storage. Cette file persiste en cas de panne ; une
+nouvelle tentative ou un rechargement reprend le nettoyage. La suppression n’est
+annoncée comme terminée qu’après le retrait des fichiers et de cette file.
+Les archives déjà téléchargées par des tiers ne sont pas effacées.
+
+## Accord de participation
+
+Après la connexion, avant le pseudonyme et l’accès à la collection, un écran
+explique la recherche, les données collectées, les destinataires et la licence
+CC BY 4.0. La case est décochée et une action explicite est requise.
+L’acceptation horodatée et la version `guacabook-research-v1` sont conservées dans
+le JSON du compte (`researchConsent`) avec `consent: true`. Cet écran réapparaît
+pour les anciens comptes qui n’ont pas encore accepté cette version. En cas
+d’échec de sauvegarde, l’accès reste sur cet écran pour permettre une nouvelle tentative.
+
+Après acceptation, chaque sauvegarde contenant des photos appelle automatiquement
+la fonction existante `submit_dataset` : le statut soumis et sa date sont inscrits
+par Supabase. Il n’y a plus de case de licence ni de bouton de soumission en bas
+de page. L’export final continue de filtrer les photos validées.
 
 ## Export personnel
 

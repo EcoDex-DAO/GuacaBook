@@ -32,6 +32,8 @@ export type Dataset = {
   batchStages?: Record<string, number>;
   profile: string;
   consent: boolean;
+  researchConsent?: { version: string; acceptedAt: string };
+  deletedPhotoIds?: string[];
   birds: Bird[];
   photos: Photo[];
 };
@@ -197,21 +199,22 @@ export function nextBatchTask(
   return null;
 }
 
-// Originals remain available for reassignment; no identity may reference a deleted bird.
+// Delete images containing this animal, including all annotations in those images.
 export function removeBird(data: Dataset, birdId: string): Dataset {
-  const affectedBatches = new Set(data.photos.filter(p => p.birdId === birdId || p.boxes.some(b => b.birdId === birdId)).map(p => p.batchId || `${p.birdId || ""}:${p.sessionId}`));
+  const removed = data.photos.filter(p =>
+    p.birdId === birdId || p.boxes.some(b => b.birdId === birdId),
+  );
+  const removedIds = new Set(removed.map(p => p.id));
+  const retained = data.photos.filter(p => !removedIds.has(p.id));
+  const removedBatches = new Set(removed.map(p => p.batchId || `${p.birdId || ""}:${p.sessionId}`));
+  const retainedBatches = new Set(retained.map(p => p.batchId || `${p.birdId || ""}:${p.sessionId}`));
   return {
     ...data,
     birds: data.birds.filter(b => b.id !== birdId),
-    photos: data.photos.map(p => {
-      const assigned = p.birdId === birdId;
-      const boxes = p.boxes.filter(b => b.birdId !== birdId);
-      if (!assigned && boxes.length === p.boxes.length) return p;
-      return {
-        ...p, boxes, birdId: assigned ? undefined : p.birdId,
-        completed: false, doneSteps: [], workflowStep: 0,
-      };
-    }),
-    batchStages: Object.fromEntries(Object.entries(data.batchStages || {}).filter(([key]) => !affectedBatches.has(key))),
+    photos: retained,
+    deletedPhotoIds: [...new Set([...(data.deletedPhotoIds || []), ...removedIds])],
+    batchStages: Object.fromEntries(Object.entries(data.batchStages || {}).filter(
+      ([key]) => !removedBatches.has(key) || retainedBatches.has(key),
+    )),
   };
 }

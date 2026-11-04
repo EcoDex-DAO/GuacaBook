@@ -14,17 +14,18 @@ const fixture = (): Dataset => ({
       { id: "other-box", category: "macaw", birdId: "b", side: "unknown", bbox: [50,0,50,50] }],
   }],
 });
-test("delete animal keeps originals and other identities, removes dangling references and resets affected workflow", () => {
+test("delete animal removes related photos and all their boxes, queues storage deletion and preserves unrelated animals", () => {
   const before = fixture();
+  before.photos.push({ ...before.photos[0], id: "unrelated", birdId: "b", batchId: "other", boxes: [] });
   const out = removeBird(before, "a");
   assert.deepEqual(out.birds.map(b => b.id), ["b"]);
-  assert.equal(out.photos[0].blob, original);
-  assert.equal(out.photos[0].birdId, undefined);
-  assert.deepEqual(out.photos[0].boxes.map(b => b.birdId), ["b"]);
-  assert.equal(out.photos[0].completed, false);
+  assert.deepEqual(out.photos.map(p => p.id), ["unrelated"]);
+  assert.equal(out.photos[0], before.photos[1]);
+  assert.deepEqual(out.deletedPhotoIds, ["photo"]);
   assert.deepEqual(out.batchStages, { other: 4 });
   assert.equal(before.birds.length, 2);
   assert.equal(before.photos[0].boxes.length, 2);
+  assert.deepEqual(removeBird(out, "a").deletedPhotoIds, ["photo"]);
 });
 test("global final export isolates identifiers across owners and omits incomplete photos", () => {
   const a = fixture(), b = fixture();

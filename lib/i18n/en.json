@@ -336,5 +336,18 @@
   "Exporter le dataset annoté final (COCO)": "Export the final annotated dataset (COCO)",
   "Aucune photo validée et autorisée à exporter.": "No validated and authorized photos to export.",
   "Aucune photo à exporter.": "No photos to export.",
-  "Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.": "Review: all accessible photos, including private drafts. Final export: only validated photos from submitted collections with CC BY 4.0 permission."
+  "Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.": "Review: all accessible photos, including private drafts. Final export: only validated photos from submitted collections with CC BY 4.0 permission.",
+  "Bienvenue dans le projet de recherche GuacaBook": "Welcome to the GuacaBook research project",
+  "GuacaBook collecte des photos d’aras et leurs annotations pour étudier la reconnaissance des espèces et l’identification individuelle. La fiabilité de cette identification reste à évaluer.": "GuacaBook collects macaw photos and annotations to study species recognition and individual identification. The reliability of this identification still needs to be evaluated.",
+  "En participant, vous contribuez à un dataset de recherche : vos photos, les informations sur vos animaux et vos annotations sont enregistrées en ligne et accessibles aux responsables autorisés. Les contributions pourront être partagées sous licence CC BY 4.0, y compris pour des usages commerciaux, avec attribution.": "By participating, you contribute to a research dataset: your photos, animal information and annotations are saved online and accessible to authorized project staff. Contributions may be shared under CC BY 4.0, including for commercial use, with attribution.",
+  "Importez uniquement des photos dont vous détenez les droits. Vérifiez qu’elles ne contiennent pas de personnes, d’informations privées ou de métadonnées sensibles. Une licence CC BY 4.0 déjà accordée sur une copie diffusée ne peut pas être révoquée pour cette copie.": "Only upload photos you have the rights to use. Check for people, private information or sensitive metadata. A CC BY 4.0 license already granted for a distributed copy cannot be revoked for that copy.",
+  "Lire la licence CC BY 4.0": "Read the CC BY 4.0 license",
+  "J’ai compris le projet, je dispose des droits nécessaires et j’accepte de contribuer mes photos et annotations à la recherche sous licence CC BY 4.0.": "I understand the project, have the necessary rights and agree to contribute my photos and annotations to research under CC BY 4.0.",
+  "Accepter et continuer": "Accept and continue",
+  "Supprimer « {name} » ?": "Delete “{name}”?",
+  "L’animal, ses photos ({count}) et toutes les annotations de ces photos seront supprimés définitivement de votre compte et du stockage en ligne. Une photo contenant plusieurs animaux sera également supprimée.": "The animal, its photos ({count}) and all annotations on those photos will be permanently deleted from your account and online storage. Photos containing multiple animals will also be deleted.",
+  "Suppression en cours…": "Deleting…",
+  "Réessayer la suppression": "Retry deletion",
+  "Supprimer définitivement": "Delete permanently",
+  "La suppression n’est pas terminée. Réessayez pour supprimer aussi les fichiers en ligne.": "Deletion is incomplete. Retry to also delete the online files."
 }

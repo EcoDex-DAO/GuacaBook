@@ -145,7 +145,6 @@ try {
       })
       .first()
       .waitFor();
-    await page.locator("input[type=checkbox]").check();
     const dp = page.waitForEvent("download");
     await page.getByText(t("Exporter mes données"), { exact: true }).click();
     await button("Exporter le dataset ↗").click();

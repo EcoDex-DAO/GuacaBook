@@ -336,5 +336,18 @@
   "Exporter le dataset annoté final (COCO)": "Exportar o dataset anotado final (COCO)",
   "Aucune photo validée et autorisée à exporter.": "Não há fotos validadas e autorizadas para exportar.",
   "Aucune photo à exporter.": "Não há fotos para exportar.",
-  "Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.": "Revisão: todas as fotos acessíveis, incluindo rascunhos privados. Exportação final: apenas fotos validadas de coleções enviadas com autorização CC BY 4.0."
+  "Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.": "Revisão: todas as fotos acessíveis, incluindo rascunhos privados. Exportação final: apenas fotos validadas de coleções enviadas com autorização CC BY 4.0.",
+  "Bienvenue dans le projet de recherche GuacaBook": "Bem-vindo ao projeto de pesquisa GuacaBook",
+  "GuacaBook collecte des photos d’aras et leurs annotations pour étudier la reconnaissance des espèces et l’identification individuelle. La fiabilité de cette identification reste à évaluer.": "O GuacaBook coleta fotos de araras e anotações para estudar o reconhecimento de espécies e a identificação individual. A confiabilidade dessa identificação ainda precisa ser avaliada.",
+  "En participant, vous contribuez à un dataset de recherche : vos photos, les informations sur vos animaux et vos annotations sont enregistrées en ligne et accessibles aux responsables autorisés. Les contributions pourront être partagées sous licence CC BY 4.0, y compris pour des usages commerciaux, avec attribution.": "Ao participar, você contribui para um dataset de pesquisa: suas fotos, informações dos animais e anotações são salvas online e acessíveis aos responsáveis autorizados. As contribuições poderão ser compartilhadas sob CC BY 4.0, inclusive para uso comercial, com atribuição.",
+  "Importez uniquement des photos dont vous détenez les droits. Vérifiez qu’elles ne contiennent pas de personnes, d’informations privées ou de métadonnées sensibles. Une licence CC BY 4.0 déjà accordée sur une copie diffusée ne peut pas être révoquée pour cette copie.": "Envie apenas fotos sobre as quais você possui os direitos. Verifique se não contêm pessoas, informações privadas ou metadados sensíveis. Uma licença CC BY 4.0 já concedida sobre uma cópia distribuída não pode ser revogada para essa cópia.",
+  "Lire la licence CC BY 4.0": "Ler a licença CC BY 4.0",
+  "J’ai compris le projet, je dispose des droits nécessaires et j’accepte de contribuer mes photos et annotations à la recherche sous licence CC BY 4.0.": "Entendi o projeto, possuo os direitos necessários e aceito contribuir minhas fotos e anotações para a pesquisa sob CC BY 4.0.",
+  "Accepter et continuer": "Aceitar e continuar",
+  "Supprimer « {name} » ?": "Excluir «{name}»?",
+  "L’animal, ses photos ({count}) et toutes les annotations de ces photos seront supprimés définitivement de votre compte et du stockage en ligne. Une photo contenant plusieurs animaux sera également supprimée.": "O animal, suas fotos ({count}) e todas as anotações dessas fotos serão excluídos permanentemente da sua conta e do armazenamento online. Fotos com vários animais também serão excluídas.",
+  "Suppression en cours…": "Excluindo…",
+  "Réessayer la suppression": "Tentar excluir novamente",
+  "Supprimer définitivement": "Excluir permanentemente",
+  "La suppression n’est pas terminée. Réessayez pour supprimer aussi les fichiers en ligne.": "A exclusão não foi concluída. Tente novamente para excluir também os arquivos online."
 }
