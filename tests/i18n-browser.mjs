@@ -55,8 +55,8 @@ try {
       .getByLabel(t("Nom (facultatif)"), { exact: true })
       .fill("Kiwi droite");
     await page
-      .getByLabel(t("Espèce (laisser vide si inconnue)"))
-      .fill("Ara ararauna");
+      .getByLabel(t("Espèce"), { exact: true })
+      .selectOption("Ara ararauna");
     await button("Créer un ara").click();
     await page.getByLabel(t("Séance de prise de vue")).fill("Jardín / manhã");
     await page.getByLabel(t("Photos du lot")).setInputFiles({

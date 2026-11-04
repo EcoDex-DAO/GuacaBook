@@ -13,6 +13,8 @@ import {
   stepValid,
   removeBird,
 } from "../lib/dataset";
+import AnimalForm from "./components/AnimalForm";
+import { macawSpecies } from "../lib/macaws";
 import ViewReference from "./components/ViewReference";
 import AnnotationCanvas from "./components/AnnotationCanvas";
 import BirdGlyph from "./components/BirdGlyph";
@@ -71,8 +73,6 @@ function Home() {
     [screen, setScreen] = useState<"animals" | "batch" | "annotate">("animals"),
     [bird, setBird] = useState(""),
     [active, setActive] = useState(""),
-    [name, setName] = useState(""),
-    [species, setSpecies] = useState(""),
     [session, setSession] = useState(""),
     [busy, setBusy] = useState(false),
     [url, setUrl] = useState(""),
@@ -474,7 +474,15 @@ function Home() {
                 <section className="animal" key={b.id}>
                   <span className="avatar">↗</span>
                   <h2>{b.name || t("Ara sans nom")}</h2>
-                  <p>{b.species || t("Espèce inconnue")}</p>
+                  <p>{b.speciesInfo?.kind === "hybrid"
+                    ? `${t("Hybride")}${b.speciesInfo.label ? ` · ${b.speciesInfo.label}` : ""}`
+                    : macawSpecies.some(([scientificName]) => scientificName === b.species)
+                      ? `${t(macawSpecies.find(([scientificName]) => scientificName === b.species)![1])} · ${b.species}`
+                      : b.species || t("Espèce inconnue")}</p>
+                  <p className="small">
+                    {t(b.sex === "male" ? "Mâle" : b.sex === "female" ? "Femelle" : "Sexe inconnu")}
+                    {" · "}{b.birthYear ? t("Naissance : {year} · environ {age} an(s)", { year: b.birthYear, age: new Date().getFullYear() - b.birthYear }) : t("Année de naissance inconnue")}
+                  </p>
                   <p className="small">
                     {
                       data.photos.filter(
@@ -497,43 +505,10 @@ function Home() {
                   </button>
                 </section>
               ))}
-              <section>
-                <h2>{t("+ Créer un animal")}</h2>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const b = {
-                      id: uid(),
-                      name: name.trim(),
-                      species: species.trim(),
-                    };
-                    update((d) => ({ ...d, birds: [...d.birds, b] }));
-                    setName("");
-                    setSpecies("");
-                    choose(b.id);
-                  }}
-                >
-                  <label>
-                    {" "}
-                    {t("Nom (facultatif)")}{" "}
-                    <input
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder={t("Ex. Kiwi")}
-                    />
-                  </label>
-                  <label>
-                    {" "}
-                    {t("Espèce (laisser vide si inconnue)")}{" "}
-                    <input
-                      value={species}
-                      onChange={(e) => setSpecies(e.target.value)}
-                      placeholder={t("Ex. Ara ararauna")}
-                    />
-                  </label>
-                  <button type="submit">{t("Créer un ara")}</button>
-                </form>
-              </section>
+              <AnimalForm onCreate={b => {
+                update(d => ({ ...d, birds: [...d.birds, b] }));
+                choose(b.id);
+              }} />
             </div>
           )}
           {screen === "batch" && (

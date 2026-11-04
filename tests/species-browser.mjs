@@ -1,0 +1,77 @@
+import { chromium } from "@playwright/test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import JSZip from "jszip";
+import { A, rows, setup, signIn } from "./supabase-mock.mjs";
+const browser = await chromium.launch({ executablePath: "/usr/bin/chromium", args: ["--no-sandbox", "--enable-unsafe-swiftshader"] });
+try {
+  const page = await browser.newPage({ locale: "fr-FR" });
+  const png = await setup(page);
+  await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
+  await signIn(page);
+  await page.getByLabel("Nom ou pseudonyme", { exact: true }).fill("Tom");
+  await page.getByRole("button", { name: "Entrer dans GuacaBook →", exact: true }).click();
+  const species = () => page.getByLabel("Espèce", { exact: true });
+  await species().waitFor();
+  assert.equal(await species().locator("option").count(), 20);
+  async function save() {
+    await page.getByRole("status").filter({ hasText: "Toutes les modifications sont enregistrées en ligne." }).first().waitFor();
+  }
+  async function create(name) {
+    await page.getByLabel("Nom (facultatif)", { exact: true }).fill(name);
+    await page.getByRole("button", { name: "Créer un ara", exact: true }).click();
+    await save();
+    await page.getByRole("button", { name: "← Mes animaux", exact: true }).click();
+  }
+  await create("Unknown");
+  await species().selectOption("Anodorhynchus hyacinthinus");
+  await page.getByLabel("Sexe", { exact: true }).selectOption("female");
+  await page.getByLabel("Année de naissance (facultatif)").fill("2020");
+  await create("Hyacinth");
+  await species().selectOption("other");
+  await page.getByLabel("Précisez l’espèce · Espèce", { exact: true }).fill("Ara déclaré par le propriétaire");
+  await create("Other");
+  await species().selectOption("hybrid");
+  await page.getByLabel("Nom du croisement (facultatif)").fill("Catalina");
+  await create("Unknown parents");
+  await species().selectOption("hybrid");
+  await page.getByLabel("Parent A", { exact: true }).selectOption("Ara ararauna");
+  await page.getByLabel("Parent B", { exact: true }).selectOption("Ara macao");
+  await create("Known parents");
+  await species().selectOption("hybrid");
+  await page.getByLabel("Parent A", { exact: true }).selectOption("hybrid");
+  await page.getByLabel("Parent B", { exact: true }).selectOption("other");
+  await page.getByLabel("Précisez l’espèce · Parent B", { exact: true }).fill("Ascendance déclarée");
+  await create("Mixed ancestry");
+  const birds = rows.get(A).dataset.birds;
+  assert.equal(birds[0].sex, "unknown");
+  assert.equal(birds[0].birthYear, null);
+  assert.equal(birds[1].sex, "female");
+  assert.equal(birds[1].birthYear, 2020);
+  assert.equal(birds[2].sex, "unknown");
+  assert.equal(birds[2].birthYear, null);
+  assert.equal(birds[0].species, "");
+  assert.deepEqual(birds[0].speciesInfo, { kind: "unknown" });
+  assert.equal(birds[1].species, "Anodorhynchus hyacinthinus");
+  assert.deepEqual(birds[2].speciesInfo, { kind: "other", label: "Ara déclaré par le propriétaire" });
+  assert.deepEqual(birds[3].speciesInfo, { kind: "hybrid", label: "Catalina", parents: [{ kind: "unknown" }, { kind: "unknown" }] });
+  assert.deepEqual(birds[4].speciesInfo.parents, [{ kind: "species", scientificName: "Ara ararauna" }, { kind: "species", scientificName: "Ara macao" }]);
+  assert.deepEqual(birds[5].speciesInfo.parents, [{ kind: "hybrid" }, { kind: "other", label: "Ascendance déclarée" }]);
+  const card = page.locator("section.animal").filter({ has: page.getByRole("heading", { name: "Known parents", exact: true }) });
+  await card.getByRole("button", { name: "Choisir cet animal →", exact: true }).click();
+  await page.getByLabel("Photos du lot").setInputFiles({ name: "ara.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  await save();
+  await page.getByText("Exporter mes données", { exact: true }).click();
+  const pending = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Exporter le dataset ↗", exact: true }).click();
+  const download = await pending;
+  const zip = await JSZip.loadAsync(await readFile(await download.path()));
+  const coco = JSON.parse(await zip.file("annotations.json").async("string"));
+  assert.deepEqual(coco.guacabook.individuals, birds);
+  await page.reload();
+  await page.getByRole("heading", { name: "Known parents", exact: true }).waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await species().selectOption("hybrid");
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  console.log("PASS: species catalog, unknown, custom species, optional/known/mixed hybrid parents, cloud persistence and COCO round trip, mobile (simulated API).");
+} finally { await browser.close(); }

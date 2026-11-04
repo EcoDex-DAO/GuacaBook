@@ -1,4 +1,5 @@
-export type Bird = { id: string; name: string; species: string };
+import type { SpeciesInfo } from "./macaws";
+export type Bird = { id: string; name: string; species: string; speciesInfo?: SpeciesInfo; sex?: "male" | "female" | "unknown"; birthYear?: number | null };
 export type Box = {
   id: string;
   category: "macaw" | "periocular_region" | "eye";
