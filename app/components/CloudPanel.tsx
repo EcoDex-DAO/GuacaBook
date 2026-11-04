@@ -3,9 +3,12 @@ import { useEffect, useState } from "react";
 
 import JSZip from "jszip";
 import { researchDataset } from "../../lib/researchExport";
-import { coco, stepValid } from "../../lib/dataset";
+import { stepValid } from "../../lib/dataset";
 import { CloudRow, loadCloudDataset } from "../../lib/cloud";
 
+import { buildV1Archive } from "../../lib/v1Archive";
+import type { Review } from "../../lib/v1";
+import ContributionReview from "./ContributionReview";
 import type { CloudWorkspace } from "../../lib/useCloudWorkspace";
 import { useAccount } from "./AccountGate";
 import { useI18n } from "./I18n";
@@ -20,7 +23,8 @@ export function CloudActions({
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [admin, setAdmin] = useState(false),
-    [rows, setRows] = useState<CloudRow[]>([]);
+    [rows, setRows] = useState<CloudRow[]>([]),
+    [reviewing, setReviewing] = useState<CloudRow|null>(null);
   useEffect(() => {
     if (!client) return;
     let live = true;
@@ -44,6 +48,7 @@ export function CloudActions({
         [
           "Des annotations différentes existent déjà pour le même animal ou la même photo. Exportez vos copies avant de les rapprocher.",
           "La copie locale a changé. Elle n’a pas été effacée.",
+          "Revue indisponible. Exécutez la migration 004 et rechargez les contributions.",
         ].includes(key)
           ? key
           : "Opération en ligne impossible. Vérifiez la connexion, la configuration et les quotas, puis réessayez.",
@@ -76,11 +81,16 @@ export function CloudActions({
   async function adminExport(row: CloudRow) {
     if (!client) return;
     const dataset = await loadCloudDataset(client, row);
-    const zip = new JSZip();
-    zip.file("annotations.json", JSON.stringify(coco(dataset), null, 2));
-    for (const p of dataset.photos)
-      zip.file(`images/${p.id}-${p.name}`, p.blob);
-    await download(zip, `guacabook-${row.owner_id}.zip`);
+    const reviews=await loadReviews(row);
+    const {zip}=await buildV1Archive(dataset,reviews);
+    zip.file("manifest.json",JSON.stringify({owner_id:row.owner_id,revision:row.revision,contributor:row.dataset.profile},null,2));
+    await download(zip, `guacabook-v1-${row.owner_id}.zip`);
+  }
+  async function loadReviews(row: CloudRow) {
+    if(!client)throw new Error("Authentication required");
+    const {data,error}=await client.from("annotation_reviews").select("*").eq("owner_id",row.owner_id).eq("dataset_revision",row.revision);
+    if(error)throw new Error("Revue indisponible. Exécutez la migration 004 et rechargez les contributions.");
+    return new Map<string,Review>((data||[]).map(r=>[r.annotation_id,r]));
   }
   async function allContributions() {
     if (!client) throw new Error("Unavailable");
@@ -99,18 +109,20 @@ export function CloudActions({
     await w.flush();
     const contributions = await allContributions();
     const selected = final ? contributions.filter(row => row.status === "submitted" && row.dataset.consent) : contributions;
-    const zip = new JSZip();
+    let zip = new JSZip();
     if (final) {
       const collections = [];
+      const reviews=new Map<string,Review>();
       for (const row of selected) {
         const validatedRow = { ...row, dataset: { ...row.dataset, photos: row.dataset.photos.filter(p => p.completed && stepValid(p, 5)) } };
         if (!validatedRow.dataset.photos.length) continue;
         collections.push({ ownerId: row.owner_id, dataset: await loadCloudDataset(client, validatedRow) });
+        const decisions=await loadReviews(row);
+        for(const [id,review] of decisions)reviews.set(`${row.owner_id}__${id}`,{...review,annotation_id:`${row.owner_id}__${id}`});
       }
       const dataset = researchDataset(collections);
       if (!dataset.photos.length) { setMessage("Aucune photo validée et autorisée à exporter."); return; }
-      zip.file("annotations.json", JSON.stringify(coco(dataset), null, 2));
-      for (const p of dataset.photos) zip.file(`images/${p.id}-${p.name}`, p.blob);
+      zip = (await buildV1Archive(dataset,reviews)).zip;
     } else {
       let count = 0;
       for (const row of selected) {
@@ -124,7 +136,7 @@ export function CloudActions({
       exported_at: new Date().toISOString(),
       collections: selected.map(row => ({ owner_id: row.owner_id, revision: row.revision, status: row.status, contributor: row.dataset.profile || null, consent: row.dataset.consent, consented_at: row.consented_at })),
     }, null, 2));
-    await download(zip, final ? "guacabook-final-coco.zip" : "guacabook-originals-review.zip");
+    await download(zip, final ? "guacabook-v1-research.zip" : "guacabook-originals-review.zip");
   }
   if (!admin && !w.error && !busy && !message && !error) return null;
   return (
@@ -174,9 +186,9 @@ export function CloudActions({
           </button>
           <div className="cloudactions">
             <button disabled={busy} onClick={() => run(() => exportAll(false))}>{t("Exporter tous les originaux pour vérification")}</button>
-            <button disabled={busy} onClick={() => run(() => exportAll(true))}>{t("Exporter le dataset annoté final (COCO)")}</button>
+            <button disabled={busy} onClick={() => run(() => exportAll(true))}>{t("Exporter V1 (COCO + Wild Me)")}</button>
           </div>
-          <p className="small">{t("Vérification : toutes les photos accessibles, y compris les brouillons privés. Export final : uniquement les photos validées des collections soumises avec autorisation CC BY 4.0.")}</p>
+          <p className="small">{t("V1 : COCO générique des annotations terminées et CSV Wild Me limité aux régions nettes, dégagées et acceptées par la revue.")}</p>
           <ul className="photolist">
             {rows.map((row) => (
               <li key={row.owner_id}>
@@ -185,17 +197,19 @@ export function CloudActions({
                   {row.dataset.photos.length} {t("photos")} ·{" "}
                   {t(row.status === "submitted" ? "Soumise" : "Brouillon")}
                 </span>
+                <button disabled={busy} onClick={()=>setReviewing(row)}>{t("Examiner les régions")}</button>
                 <button
                   disabled={busy || row.status !== "submitted"}
                   onClick={() => run(() => adminExport(row))}
                 >
-                  {t("Exporter la contribution COCO")}
+                  {t("Exporter la contribution V1")}
                 </button>
               </li>
             ))}
           </ul>
         </details>
       )}
+      {reviewing && <ContributionReview key={`${reviewing.owner_id}:${reviewing.revision}`} row={reviewing}/>}
       {busy && <p role="status">{t("Transfert en cours…")}</p>}
       {message && <p role="status">{t(message)}</p>}
       {error && <p role="alert">{t(error)}</p>}

@@ -70,7 +70,7 @@ try {
     .click();
   const downloaded = page.waitForEvent("download");
   await page
-    .getByRole("button", { name: "Exporter la contribution COCO", exact: true })
+    .getByRole("button", { name: "Exporter la contribution V1", exact: true })
     .click();
   assert.match((await downloaded).suggestedFilename(), /^guacabook-/);
   // New device: remote data cannot be overwritten before loading it.

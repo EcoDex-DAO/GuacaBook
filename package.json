@@ -1,6 +1,6 @@
 {
   "name": "guacabook",
-  "version": "0.1.0",
+  "version": "1.0.0-beta.1",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -8,7 +8,13 @@
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "smoke": "node tests/browser.mjs"
+    "smoke": "node tests/browser.mjs",
+    "version:patch": "node --import tsx scripts/version.ts patch",
+    "version:minor": "node --import tsx scripts/version.ts minor",
+    "version:major": "node --import tsx scripts/version.ts major",
+    "version:prerelease": "node --import tsx scripts/version.ts prerelease",
+    "version:stable": "node --import tsx scripts/version.ts stable",
+    "version:auto": "node --import tsx scripts/version.ts auto"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

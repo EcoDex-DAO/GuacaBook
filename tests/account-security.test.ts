@@ -26,6 +26,7 @@ test("PostgreSQL : administrateur protégé, types et comptes administrables uni
       "001_private_collection.sql",
       "002_account_management.sql",
       "003_account_moderation.sql",
+      "004_annotation_reviews.sql",
     ])
       await db.exec(
         await readFile(
@@ -97,7 +98,7 @@ test("PostgreSQL : administrateur protégé, types et comptes administrables uni
       profile: "A",
       consent: true,
       birds: [],
-      photos: [{ id: "photo" }],
+      photos: [{ id: "photo", boxes: [{ id: "region", category: "periocular_region" }] }],
     });
     await db.query(
       "insert into public.contributor_datasets(owner_id,dataset) values($1,$2)",
@@ -107,6 +108,20 @@ test("PostgreSQL : administrateur protégé, types et comptes administrables uni
       "insert into storage.objects(bucket_id,name) values('guacabook-photos',$1)",
       [`${a}/photo`],
     );
+    await assert.rejects(db.query("select public.review_annotation($1,1,'region','accepted',repeat('a',64))", [a]));
+    await assert.rejects(db.query("insert into public.annotation_reviews(owner_id,dataset_revision,annotation_id,decision) values($1,1,'region','accepted',repeat('a',64))", [a]));
+    await as(root);
+    await db.query("select public.review_annotation($1,1,'region','accepted',repeat('a',64))", [a]);
+    await as(b);
+    assert.equal((await db.query("select * from public.annotation_reviews")).rows.length,0);
+    await as(a);
+    assert.equal((await db.query("select * from public.annotation_reviews")).rows.length,1);
+    await db.query("update public.contributor_datasets set dataset=jsonb_set(dataset,'{profile}','\"A edited\"'),revision=revision+1 where owner_id=$1",[a]);
+    assert.equal((await db.query("select * from public.annotation_reviews where dataset_revision=2")).rows.length,0);
+    await as(root);
+    await assert.rejects(db.query("select public.review_annotation($1,1,'region','accepted',repeat('a',64))",[a]));
+    await assert.rejects(db.query("select public.review_annotation($1,2,'absent','accepted',repeat('a',64))",[a]));
+    await db.query("select public.review_annotation($1,2,'region','rejected',repeat('a',64))",[a]);
     await as(b);
     assert.equal(
       (

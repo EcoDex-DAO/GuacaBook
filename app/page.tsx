@@ -2,12 +2,13 @@
 import { useI18n, LanguagePicker } from "./components/I18n";
 import { useEffect, useState } from "react";
 import { useCloudWorkspace } from "../lib/useCloudWorkspace";
+import RegionChecks from "./components/RegionChecks";
+import { buildV1Archive } from "../lib/v1Archive";
+import { readCloudRow, loadCloudDataset } from "../lib/cloud";
 import exifr from "exifr";
-import JSZip from "jszip";
 import {
   Box,
   Photo,
-  coco,
   nextBatchTask,
   requiredSides,
   stepValid,
@@ -50,7 +51,7 @@ export default function Page() {
   );
 }
 function Home() {
-  const { user, registerBeforeSignOut } = useAccount();
+  const { user, client, registerBeforeSignOut } = useAccount();
   const workspace = useCloudWorkspace();
   const { data, update, ready } = workspace;
   const status = !ready
@@ -140,6 +141,7 @@ function Home() {
             ? {
                 ...p,
                 completed: false,
+                annotationVersion: 1,
                 doneSteps: (
                   p.doneSteps || (p.completed ? [0, 1, 2, 3, 4, 5] : [])
                 ).filter((s) => s !== step && s !== 5),
@@ -194,6 +196,7 @@ function Home() {
             batchId,
             quality: "unreviewed",
             workflowStep: 0,
+            annotationVersion: 1,
             boxes: [],
           });
           bitmap.close();
@@ -218,13 +221,15 @@ function Home() {
   async function download() {
     setBusy(true);
     try {
-      const zip = new JSZip();
-      zip.file("annotations.json", JSON.stringify(coco(data), null, 2));
-      zip.file(
-        "README.txt",
-        "GuacaBook v2 — CC BY 4.0\nOriginal files may contain private metadata: inspect them before sharing. Boxes use original image pixels after EXIF orientation. Categories: macaw (1), periocular_region (2), eye (3). images[].guacabook includes individual_id, batch_id, session_id, viewpoint (azimuth: front 0, anatomical right 90, back 180, anatomical left 270 degrees; elevation: above +30, eye level 0, below -30), eye_layout (left/right/both/unknown), periocular_by_side and annotation_status (draft/complete). Unknown values are not inferred. No crops are generated. See the repository README.en.md and README.md for details.\n",
-      );
-      for (const p of data.photos) zip.file(`images/${p.id}-${p.name}`, p.blob);
+      await workspace.flush();
+      if(!client || !user)throw new Error("Authentication required");
+      const row=await readCloudRow(client,user.id);
+      if(!row)throw new Error("Collection missing");
+      const snapshot=await loadCloudDataset(client,row);
+      const {data:reviews,error}=await client.from("annotation_reviews").select("*").eq("owner_id",user.id).eq("dataset_revision",row.revision);
+      const {zip}=await buildV1Archive(snapshot,new Map((reviews||[]).map(r=>[r.annotation_id,r])));
+      zip.file("manifest.json",JSON.stringify({owner_id:user.id,revision:row.revision,contributor:snapshot.profile},null,2));
+      if(error)zip.file("review-unavailable.txt","Apply Supabase migration 004 to enable verified Wild Me samples. Generic dataset only.");
       const blob = await zip.generateAsync({ type: "blob" });
       const u = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -711,6 +716,7 @@ function Home() {
                             birdId: photo.birdId || "",
                             side: category === "macaw" ? "unknown" : side,
                             bbox,
+                            ...(category === "periocular_region" ? { usability: "unknown" as const, occluded: null } : {}),
                           },
                         ],
                       });
@@ -731,6 +737,7 @@ function Home() {
                               ? ` · ${b.side === "left" ? t("gauche") : b.side === "right" ? t("droite") : t("côté inconnu")}`
                               : ""}
                           </span>
+                          {b.category === "periocular_region" && <RegionChecks box={b} index={i+1} onChange={patch=>patchPhoto({boxes:photo.boxes.map(box=>box.id===b.id?{...box,...patch}:box)})}/>}
                           <button
                             aria-label={t("Supprimer l’annotation {number}", {
                               number: i + 1,
@@ -911,6 +918,7 @@ function Home() {
                           "Validez cette photo, puis la suivante du lot. Chaque étape a été réalisée en série sur toutes les photos.",
                         )}{" "}
                       </p>
+                      <p className="small">{t("Terminer l’annotation ne vaut pas acceptation scientifique. Une personne autorisée examinera les régions avant leur export Wild Me.")}</p>
                       <ul className="review">
                         {steps.slice(0, 5).map((s, i) => (
                           <li key={s}>

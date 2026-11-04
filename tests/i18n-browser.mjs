@@ -166,7 +166,7 @@ try {
     assert.equal(out.categories[0].name, "macaw");
     assert.match(
       await zip.file("README.txt").async("string"),
-      /Original files/,
+      /private EXIF metadata/,
     );
     await page
       .getByLabel("Language / Langue")

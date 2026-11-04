@@ -8,6 +8,9 @@ try {
   const page = await browser.newPage({ locale: "fr-FR" });
   const png = await setup(page);
   await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
+  await page.getByTestId("app-version").waitFor();
+  const manifest=JSON.parse(await readFile(new URL("../package.json",import.meta.url),"utf8"));
+  assert.equal(await page.getByTestId("app-version").innerText(),`v${manifest.version}`);
   await signIn(page);
   await page.getByLabel("Nom ou pseudonyme", { exact: true }).fill("Tom");
   await page.getByRole("button", { name: "Entrer dans GuacaBook →", exact: true }).click();

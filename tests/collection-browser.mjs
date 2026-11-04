@@ -9,7 +9,7 @@ try {
   const png = await setup(page);
   const photoId = "33333333-3333-4333-8333-333333333333";
   for (const owner of [A, B]) {
-    const photo = { id: photoId, name: "ara.png", objectPath: `${owner}/${photoId}`, mimeType: "image/png", width: 100, height: 80, capturedAt: "", sessionId: "session", birdId: "bird", quality: "usable", completed: true, viewpoint: null, bodyVisibility: "not_visible", eyeVisible: "no", boxes: [] };
+    const photo = { id: photoId, name: "ara.png", objectPath: `${owner}/${photoId}`, mimeType: "image/png", width: 400, height: 300, capturedAt: "", sessionId: "session", birdId: "bird", quality: "usable", completed: true, viewpoint: null, bodyVisibility: "not_visible", eyeVisible: "no", boxes: [] };
     rows.set(owner, { owner_id: owner, revision: 1, status: owner === A ? "submitted" : "draft", consented_at: owner === A ? new Date().toISOString() : null,
       dataset: { profile: owner === A ? "Admin" : "Private", consent: owner === A, birds: [{ id: "bird", name: "Kiwi", species: "" }], photos: [photo] } });
     objects.set(photo.objectPath, Buffer.from(png, "base64"));
@@ -40,7 +40,7 @@ try {
   }
   const raw = await archive("Exporter tous les originaux pour vérification");
   assert.equal(Object.values(raw.files).filter(f => !f.dir && f.name.startsWith("images/")).length, 2);
-  const final = await archive("Exporter le dataset annoté final (COCO)");
+  const final = await archive("Exporter V1 (COCO + Wild Me)");
   const coco = JSON.parse(await final.file("annotations.json").async("string"));
   assert.equal(coco.images.length, 1);
   assert.ok(final.file(coco.images[0].file_name));

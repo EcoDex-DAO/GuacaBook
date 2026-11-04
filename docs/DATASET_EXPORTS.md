@@ -1,5 +1,9 @@
 # Animaux et exports
 
+La V1 et son format de référence sont décrits dans [V1_DATASET.md](V1_DATASET.md).
+Les exports incluent désormais les recadrages et un adaptateur MiewID ; l’acceptation
+scientifique est distincte de la fin du parcours contributeur.
+
 ## Suppression d’un animal
 
 Dans « Mes animaux », le bouton « Supprimer cet animal » ouvre une fenêtre intégrée
@@ -49,15 +53,13 @@ contrôlés par les politiques Supabase existantes, sans clé privilégiée côt
   les comptes accessibles, y compris les collections privées non soumises, dans
   `images/<compte>/<photo>-<nom>`. Cette archive sert à la vérification interne :
   elle ne constitue pas une autorisation de publication des images.
-- « Exporter le dataset annoté final (COCO) » rassemble uniquement les collections
-  soumises avec autorisation CC BY 4.0, et leurs photos marquées terminées dont
-  toutes les étapes d’annotation sont valides. Les brouillons sont exclus.
-  `annotations.json` et les originaux utilisent les mêmes chemins. Les identifiants
-  d’animaux, images, séances et lots sont préfixés par le compte pour éviter les
-  collisions. Les boîtes restent exprimées dans les pixels des originaux.
+- « Exporter V1 (COCO + Wild Me) » rassemble les annotations terminées des collections
+  soumises et autorisées. Son COCO générique conserve les informations déclarées.
+  Son CSV Wild Me filtre les régions selon qualité, occlusion, côté, identité et
+  revue de la révision. Voir le protocole V1 pour les chemins et découpages.
 
 Les deux archives contiennent un `manifest.json` avec les comptes, révisions,
 statuts et autorisations au moment de l’export. Les originaux peuvent contenir des
 métadonnées privées. Les archives sont assemblées dans le navigateur ; pour une
 collecte volumineuse, il faudra déplacer cette génération vers un traitement serveur.
-Aucune migration SQL supplémentaire n’est nécessaire pour ces changements.
+La revue V1 nécessite la migration 004.

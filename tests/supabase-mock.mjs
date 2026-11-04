@@ -4,6 +4,7 @@ export const rows = new Map(),
   objects = new Map();
 export const counters = { uploads: 0 };
 export const faults = { writes: 0, delay: 0, deletes: 0 };
+export const annotationReviews = new Map();
 export const managedUsers = new Map();
 export const accountTypes = new Map();
 const passwords = new Map();
@@ -76,6 +77,7 @@ export async function signIn(
 }
 export function resetMock() {
   initializeAccounts();
+  annotationReviews.clear();
   rows.clear();
   objects.clear();
   counters.uploads = 0;
@@ -275,6 +277,18 @@ export async function setup(page) {
       row.consented_at = new Date().toISOString();
       return json(row.revision);
     }
+    if (url.pathname.includes("/rest/v1/annotation_reviews")) {
+      const owner=url.searchParams.get("owner_id")?.replace("eq.",""), revision=Number(url.searchParams.get("dataset_revision")?.replace("eq.",""));
+      return json([...annotationReviews.values()].filter(r=>r.owner_id===owner && r.dataset_revision===revision));
+    }
+    if (url.pathname.endsWith("/rpc/review_annotation")) {
+      if(id!==A)return json({message:"Reviewer required"},403);
+      const input=req.postDataJSON(), row=rows.get(input.target_owner);
+      if(!row || row.revision!==input.expected_revision)return json({message:"Stale revision"},409);
+      const review={owner_id:input.target_owner,dataset_revision:input.expected_revision,annotation_id:input.target_annotation,decision:input.new_decision,source_sha256:input.expected_sha256,reviewer_id:id,reviewed_at:new Date().toISOString()};
+      annotationReviews.set(`${review.owner_id}:${review.dataset_revision}:${review.annotation_id}`,review);
+      return json(null);
+    }
     if (url.pathname.includes("/rest/v1/contributor_datasets")) {
       const owner = url.searchParams.get("owner_id")?.replace("eq.", "") || id;
       if (req.method() === "GET")
@@ -333,7 +347,12 @@ export async function setup(page) {
             },
             409,
           );
-        objects.set(path, Buffer.from(png, "base64"));
+        const buffer=req.postDataBuffer();
+        if(req.headers()["content-type"]?.includes("multipart/form-data")) {
+          const form=await new Response(buffer,{headers:{"content-type":req.headers()["content-type"]}}).formData();
+          const file=[...form.values()].find(value=>typeof value!=="string");
+          objects.set(path,file?Buffer.from(await file.arrayBuffer()):Buffer.from(png,"base64"));
+        } else objects.set(path,buffer || Buffer.from(png,"base64"));
         return json({ Key: path });
       }
       if (!objects.has(path)) return json({ message: "Missing" }, 404);

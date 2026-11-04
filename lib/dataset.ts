@@ -1,3 +1,4 @@
+import { APP_VERSION } from "./version";
 import type { SpeciesInfo } from "./macaws";
 export type Bird = { id: string; name: string; species: string; speciesInfo?: SpeciesInfo; sex?: "male" | "female" | "unknown"; birthYear?: number | null };
 export type Box = {
@@ -6,6 +7,8 @@ export type Box = {
   birdId: string;
   side: "left" | "right" | "unknown";
   bbox: [number, number, number, number];
+  usability?: "usable" | "unusable" | "unknown";
+  occluded?: boolean | null;
 };
 export type Photo = {
   id: string;
@@ -20,6 +23,7 @@ export type Photo = {
   batchId?: string;
   workflowStep?: number;
   completed?: boolean;
+  annotationVersion?: 1;
   doneSteps?: number[];
   eyeLayout?: "left" | "right" | "both" | "unknown";
   regionBySide?: Partial<Record<Box["side"], "yes" | "no" | "unknown">>;
@@ -61,8 +65,8 @@ export function coco(data: Dataset) {
   return {
     info: {
       description: "GuacaBook — annotations",
-      version: "2.0",
-      extensions: "GuacaBook v2; see README.en.md and README.md",
+      version: APP_VERSION,
+      extensions: "GuacaBook schema 3; see docs/V1_DATASET.md",
     },
     licenses: [
       {
@@ -78,6 +82,8 @@ export function coco(data: Dataset) {
       height: p.height,
       license: 1,
       date_captured: p.capturedAt || null,
+      timestamp: p.capturedAt || null,
+      identity: [...new Set(p.boxes.map(b => b.birdId).filter(Boolean).concat(p.birdId || []))].length === 1 ? p.birdId || p.boxes.find(b => b.birdId)?.birdId || null : null,
       guacabook: {
         photo_id: p.id,
         session_id: p.sessionId || null,
@@ -104,7 +110,14 @@ export function coco(data: Dataset) {
           bbox: b.bbox,
           area: b.bbox[2] * b.bbox[3],
           iscrowd: 0,
+          attributes: {
+            identity: b.birdId || null,
+            orientation: b.side,
+            occluded: b.occluded ?? null,
+            usability: b.usability ?? "unknown",
+          },
           guacabook: {
+            annotation_id: b.id,
             individual_id: b.birdId || null,
             side: b.category !== "macaw" ? b.side : null,
           },
@@ -117,7 +130,7 @@ export function coco(data: Dataset) {
       { id: 3, name: "eye", supercategory: "animal" },
     ],
     guacabook: {
-      schema_version: 2,
+      schema_version: 3,
       contributor: data.profile || null,
       individuals: data.birds,
       sessions: [
@@ -155,7 +168,8 @@ export function stepValid(p: Omit<Photo, "blob">, step: number): boolean {
     );
   if (step === 4)
     return (
-      p.eyeVisible !== "yes" ||
+      (p.annotationVersion !== 1 || p.boxes.filter(b => b.category === "periocular_region" && b.birdId === p.birdId).every(b => b.usability !== undefined && b.occluded !== undefined)) &&
+      (p.eyeVisible !== "yes" ||
       requiredSides(p).every((side) => {
         const visible =
           p.regionBySide?.[side] ??
@@ -170,7 +184,7 @@ export function stepValid(p: Omit<Photo, "blob">, step: number): boolean {
                 b.side === side,
             ))
         );
-      })
+      }))
     );
   return [0, 1, 2, 3, 4].every((s) => stepValid(p, s));
 }

@@ -1,4 +1,8 @@
-# GuacaBook
+# GuacaBook V1
+
+The current version is shown in the app footer and comes from `package.json` · [Version policy](docs/VERSIONS.md).
+
+V0 is archived at tag `v0.0.0`, branch `release/v0` (commit `ae6eb15`). V1 adds generic research data and a MiewID CSV adapter. Apply migration 004 for protected annotation review; see [the V1 specification](docs/V1_DATASET.md).
 
 A centralized photo collection and annotation app for macaw owners. Available in **English, French, Spanish and Portuguese**. The language selector is available on the welcome page and throughout the app. The browser language is used initially (English fallback); an explicit choice is remembered on the device. No translation service or API is used, and photos and names are never sent for translation.
 
@@ -19,12 +23,12 @@ Checks: `npm test`, `npm run typecheck`, `npm run build`. With the server runnin
 
 ## Contribute
 
-1. Accept an administrator’s invitation, choose a password, then sign in with email and password and choose a nickname. Your account collection is loaded automatically.
+1. Accept an administrator’s invitation, choose a password, then sign in with email and password and accept the research participation agreement and choose a nickname. Your account collection is loaded automatically.
 2. Add your macaws, then choose an animal and upload a photo batch.
 3. Perform each task across the whole batch: quality, viewpoint, visible body, eyes, periocular regions, then review.
 4. Use the illustrated cards to declare anatomical sides. The animal’s left is on the right of an unmirrored front-view photo. For both eyes, draw a separate left and right box; repeat for periocular regions. Unknown information must remain unknown.
 5. Use zoom, pan and fit-to-screen to annotate details. You can reset the current step or one side without deleting other categories.
-6. Explicitly authorize photo use under **CC BY 4.0**, including redistribution and commercial use with attribution, then export the ZIP.
+6. The initial agreement covers research contributions under **CC BY 4.0**. Record region sharpness and occlusion; authorized reviewers decide which regions can enter the Wild Me CSV.
 
 Animals, photos, annotations and progress are loaded from and saved automatically to Supabase. Saves are serialized and revision-checked; edits made during a transfer are queued. Nothing is persisted as a new photo/draft cache in IndexedDB. Authentication and language preferences remain in browser storage. Historic caches are neither read nor silently deleted; collections already uploaded are restored automatically.
 
@@ -32,17 +36,18 @@ Pending changes live only in memory. On a save failure, keep the page open, retr
 
 ## Export
 
-The ZIP includes unchanged originals, a COCO JSON and an English format note. Inspect originals for private metadata before sharing; the app does not extract GPS, but originals may still contain it.
-
-Standard COCO categories retain stable IDs: `macaw` (1), `periocular_region` (2), `eye` (3). Bounding boxes are `[x, y, width, height]` in original pixels **after EXIF orientation**, regardless of display zoom. Apply the EXIF orientation before using boxes on originals. Standard IDs, keys and category names do not change with the interface language.
-
-`images[].guacabook` contains stable `photo_id`, `individual_id`, `batch_id`, `session_id`, `quality`, `viewpoint`, `body_visibility`, `eye_visible`, `eye_layout`, `periocular_by_side`, `annotation_status` and sanitized original filename. `annotations[].guacabook` contains individual identity and anatomical `side` (`left`, `right`, `unknown`, or null for body boxes). Top-level `guacabook` includes contributor nickname, individuals, sessions and an empty future crops list. Missing information is null or explicitly unknown; drafts are included and labelled `draft`.
-
-Viewpoint angles are contributor-selected approximations: front 0°, right 90°, back 180°, left 270°, with intermediate 45° positions; elevation +30°, 0° or −30°. The procedural 3D model is a provisional visual reference, not an anatomical measurement or validated identification method.
+V1 archives contain unchanged uploaded originals, EXIF-normalized lossless images,
+COCO boxes (schema 3), traceable periocular crops grouped by identity/anatomical side,
+and generic metadata CSVs. The MiewID CSV includes only completed, sharp, unobstructed,
+identified regions accepted for the exact source collection revision. Generic data
+retains unknowns and, for personal exports, drafts. Closed and identity-disjoint open
+splits group images, exact duplicates, sessions and days before partitioning. Small
+cohorts do not receive fabricated evaluation sets. The exported Python helper resolves
+paths and prepares per-split CSVs. See [the format and limitations](docs/V1_DATASET.md).
 
 ## Scope and development
 
-Dataset is available; Identification and Digital twin are placeholders. Supabase accounts and centralized storage are required. No AI, COCO import or crops yet. Large collections are limited by project quotas and browser memory, including ZIP creation. Reliable individual identification remains to be evaluated.
+Dataset is available; Identification and Digital twin are placeholders. Supabase accounts and centralized storage are required. No identification model, segmentation or COCO import is implemented. Large collections are limited by project quotas and browser memory, including ZIP creation. Reliable individual identification remains to be evaluated.
 
 Translation catalogs are in `lib/i18n/{en,es,pt}.json`, with French source keys. Update every catalog when adding text; use named placeholders rather than translating contributor data. Language codes and COCO vocabulary are kept separate. Regional browser settings such as `pt-BR` and `es-MX` use the Portuguese and Spanish catalogs. These are initial general translations; review scientific terminology with native-speaking contributors before a large recruitment campaign.
 
