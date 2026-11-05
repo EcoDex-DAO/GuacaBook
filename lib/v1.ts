@@ -11,6 +11,7 @@ export function regionReasons(data: Dataset, photo: Photo, box: Box, review?: Re
   if (!data.birds.some(b => b.id === box.birdId)) reasons.push("identity_missing");
   if (!["left", "right"].includes(box.side)) reasons.push("side_unknown");
   if (box.usability !== "usable") reasons.push("region_not_usable");
+  if ((photo.regionBySide?.[box.side] ?? (photo.eyeLayout === "both" ? undefined : photo.regionVisible)) === "partial") reasons.push("region_partial");
   if (box.occluded !== false) reasons.push("occlusion_or_unknown");
   if (!validBox(photo, box)) reasons.push("invalid_bbox");
   if (review?.decision !== "accepted") reasons.push(review?.decision === "rejected" ? "review_rejected" : "review_pending");
@@ -21,6 +22,7 @@ export const reasonLabels: Record<string,string> = {
   photo_not_usable:"Photo non exploitable", not_periocular:"Région périoculaire requise", identity_missing:"Animal non associé",
   side_unknown:"Côté anatomique inconnu", region_not_usable:"Netteté de la région à vérifier",
   occlusion_or_unknown:"Région masquée ou visibilité inconnue", invalid_bbox:"Cadre hors image ou invalide",
+  region_partial:"Région partiellement visible",
   source_changed_since_review:"Photo source modifiée depuis la revue",
   review_rejected:"Région rejetée par la revue", review_pending:"Revue scientifique en attente",
 };

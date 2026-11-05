@@ -27,15 +27,16 @@ export type Photo = {
   annotationVersion?: 1;
   doneSteps?: number[];
   eyeLayout?: "left" | "right" | "both" | "unknown";
-  regionBySide?: Partial<Record<Box["side"], "yes" | "no" | "unknown">>;
+  regionBySide?: Partial<Record<Box["side"], "yes" | "partial" | "no" | "unknown">>;
   viewpoint?: { azimuth: number; elevation: number } | null;
   bodyVisibility?: "full" | "partial" | "not_visible" | "unknown";
   eyeVisible?: "yes" | "no" | "unknown";
-  regionVisible?: "yes" | "no" | "unknown";
+  regionVisible?: "yes" | "partial" | "no" | "unknown";
   quality: "unreviewed" | "usable" | "blurry";
 };
 export type Dataset = {
   batchStages?: Record<string, number>;
+  annotationResume?: { photoId: string; step: number };
   batchMetadataDefaults?: Record<string, { capturedAt: string; sessionId: string }>;
   profile: string;
   consent: boolean;
@@ -118,6 +119,7 @@ export function coco(data: Dataset) {
             orientation: b.side,
             occluded: b.occluded ?? null,
             usability: b.usability ?? "unknown",
+            visibility: b.category === "periocular_region" ? p.regionBySide?.[b.side] ?? (p.eyeLayout === "both" ? null : p.regionVisible ?? null) : null,
           },
           guacabook: {
             annotation_id: b.id,
@@ -179,7 +181,7 @@ export function stepValid(p: Omit<Photo, "blob">, step: number): boolean {
           (p.eyeLayout === "both" ? undefined : p.regionVisible);
         return (
           !!visible &&
-          (visible !== "yes" ||
+          (!["yes","partial"].includes(visible) ||
             p.boxes.some(
               (b) =>
                 b.category === "periocular_region" &&
@@ -230,6 +232,7 @@ export function removeBird(data: Dataset, birdId: string): Dataset {
     ...data,
     birds: data.birds.filter(b => b.id !== birdId),
     photos: retained,
+    annotationResume: data.annotationResume && !removedIds.has(data.annotationResume.photoId) ? data.annotationResume : undefined,
     deletedPhotoIds: [...new Set([...(data.deletedPhotoIds || []), ...removedIds])],
     batchMetadataDefaults: Object.fromEntries(Object.entries(data.batchMetadataDefaults || {}).filter(([key]) => !removedBatches.has(key) || retainedBatches.has(key))),
     batchStages: Object.fromEntries(Object.entries(data.batchStages || {}).filter(

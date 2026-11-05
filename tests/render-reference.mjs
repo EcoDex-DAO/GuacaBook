@@ -31,7 +31,7 @@ try {
     .getByRole("button", { name: "Nette / exploitable", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Enregistrer et continuer →" })
+    .getByRole("button", { name: "Valider et continuer →" })
     .click();
   for (const [label, a] of [
     ["Face", 0],

@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
 import { setup, signIn } from "./supabase-mock.mjs";
@@ -47,7 +47,7 @@ try {
   );
   const next = () =>
     page
-      .getByRole("button", { name: "Enregistrer et continuer →", exact: true })
+      .getByRole("button", { name: "Valider et continuer →", exact: true })
       .click();
   const selectPhoto = page.getByLabel("Choisir une photo du lot");
   async function assertPhoto(n) {
@@ -68,6 +68,7 @@ try {
     );
   }
   async function box(cx = 600, cy = 1400, width = 200, height = 300) {
+    await page.locator("svg.zoom-canvas").scrollIntoViewIfNeeded();
     const coords = await page.locator("svg.zoom-canvas").evaluate(
       (el, { cx, cy, width, height }) => {
         const m = el.getScreenCTM();
@@ -140,15 +141,13 @@ try {
   await page
     .getByRole("button", { name: "Déplacer l’image", exact: true })
     .click();
+  await page.locator("svg.zoom-canvas").scrollIntoViewIfNeeded();
   const pane = await page.locator("svg.zoom-canvas").boundingBox();
   await page.mouse.move(pane.x + pane.width / 2, pane.y + pane.height / 2);
   await page.mouse.down();
   await page.mouse.move(pane.x + pane.width / 2 + 20, pane.y + pane.height / 2);
   await page.mouse.up();
-  assert.notEqual(
-    await page.locator("svg.zoom-canvas").getAttribute("viewBox"),
-    beforePan,
-  );
+  await expect.poll(()=>page.locator("svg.zoom-canvas").getAttribute("viewBox")).not.toBe(beforePan);
   await page
     .getByRole("button", { name: "Déplacer l’image", exact: true })
     .click();
@@ -177,15 +176,12 @@ try {
   await assertPhoto(0);
   // Vue de face : gauche puis droite obligatoires, jamais une boîte pour les deux yeux.
   await page
-    .getByRole("button", { name: "Oui, au moins un œil visible", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Deux yeux · face", exact: true })
+    .getByRole("button", { name: "Face · deux yeux", exact: true })
     .click();
   await box(500, 1000, 100, 100);
   assert.equal(
     await page
-      .getByRole("button", { name: "Enregistrer et continuer →", exact: true })
+      .getByRole("button", { name: "Valider et continuer →", exact: true })
       .isDisabled(),
     true,
   );

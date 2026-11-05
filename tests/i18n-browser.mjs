@@ -39,7 +39,7 @@ try {
     const t = (key) => (code === "fr" ? key : catalogs[code][key] || key);
     const button = (key) =>
       page.getByRole("button", { name: t(key), exact: true });
-    const next = () => button("Enregistrer et continuer →").click();
+    const next = () => button("Valider et continuer →").click();
     resetMock();
     await setup(page);
     await page.goto(process.env.TEST_BASE_URL || "http://localhost:3000");
@@ -95,9 +95,9 @@ try {
     await next();
     await button("Le corps n’est pas visible").click();
     await next();
-    await button("Oui, au moins un œil visible").click();
-    await button("Deux yeux · face").click();
+    await button("Face · deux yeux").click();
     async function box(x) {
+      await page.locator("svg.zoom-canvas").scrollIntoViewIfNeeded();
       const pts = await page.locator("svg.zoom-canvas").evaluate((el, x) => {
         const m = el.getScreenCTM();
         return [
@@ -135,7 +135,7 @@ try {
     await page
       .getByRole("button", { name: new RegExp("^" + t("Côté droit")) })
       .click();
-    await button("La région de ce côté est masquée / coupée").click();
+    await button("La région de ce côté n’est pas visible").click();
     await next();
     await button("Valider cette photo →").click();
     await page

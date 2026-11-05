@@ -3,6 +3,8 @@ import { useI18n, LanguagePicker } from "./components/I18n";
 import { useEffect, useState } from "react";
 import { useCloudWorkspace } from "../lib/useCloudWorkspace";
 import { inheritBatchMetadata, rememberBatchMetadata } from "../lib/batchMetadata";
+import {resetAnnotationFrames,showPeriocularRegion} from "../lib/annotationActions";
+import BatchPhotoSelector from "./components/BatchPhotoSelector";
 import RegionChecks from "./components/RegionChecks";
 import { buildV1Archive } from "../lib/v1Archive";
 import { readCloudRow, loadCloudDataset } from "../lib/cloud";
@@ -81,6 +83,8 @@ function Home() {
     [url, setUrl] = useState(""),
     [side, setSide] = useState<Box["side"]>("unknown"),
     [message, setMessage] = useState("");
+  const [pausing,setPausing]=useState(false);
+  const [pauseError,setPauseError]=useState(false);
   const [failedFiles, setFailedFiles] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [deletingBird, setDeletingBird] = useState<{ id: string; name: string; count: number } | null>(null);
@@ -93,6 +97,7 @@ function Home() {
     ? (data.batchStages?.[batchKey] ?? photo.workflowStep ?? 0)
     : 0;
   function setStage(value: number) {
+    if(pausing)return;
     update((d) => ({
       ...d,
       batchStages: { ...d.batchStages, [batchKey]: value },
@@ -135,7 +140,7 @@ function Home() {
     setSide(photo ? requiredSides(photo)[0] : "unknown");
   }, [active, step]);
   function patchPhoto(patch: Partial<Photo>) {
-    if (!photo) return;
+    if (pausing || !photo) return;
     update(d => {
       const updated = {
         ...d,
@@ -258,10 +263,7 @@ function Home() {
       ? ["full", "partial"].includes(photo.bodyVisibility || "")
       : step === 3
         ? photo.eyeVisible === "yes" && !!photo.eyeLayout
-        : photo.eyeVisible === "yes" &&
-          (photo.regionBySide?.[side] ??
-            (photo.eyeLayout === "both" ? undefined : photo.regionVisible)) ===
-            "yes");
+        : photo.eyeVisible === "yes" && !!photo.eyeLayout);
   function answer(patch: Partial<Photo>, remove: Box["category"][] = []) {
     if (!photo) return;
     patchPhoto({
@@ -273,6 +275,8 @@ function Home() {
     });
   }
   function openPhoto(p: Photo) {
+    if(pausing)return;
+    setPauseError(false);
     update(d => {
       let assigned = !p.birdId && bird ? {
         ...d, photos: d.photos.map(x => x.id === p.id ? { ...x, birdId: bird } : x),
@@ -285,7 +289,7 @@ function Home() {
     setScreen("annotate");
   }
   function advance() {
-    if (!photo) return;
+    if (pausing || !photo) return;
     if (!stepValid(photo, step)) {
       setMessage(
         "Répondez à la question et tracez la zone demandée avant de continuer.",
@@ -309,6 +313,8 @@ function Home() {
         ...d,
         photos: d.photos.map(p => p.id === photo.id ? changed : p),
         batchStages: { ...d.batchStages, [batchKey]: next?.step ?? 5 },
+        annotationResume: d.annotationResume && batch.some(p=>p.id===d.annotationResume!.photoId)
+          ? (next?{photoId:next.id,step:next.step}:undefined) : d.annotationResume,
       };
       if (step === 0) updated = rememberBatchMetadata(updated, changed);
       return next ? inheritBatchMetadata(updated, next.id) : updated;
@@ -318,6 +324,22 @@ function Home() {
       setScreen("batch");
       setMessage("Lot terminé. Toutes les étapes sont validées pour le lot.");
     }
+  }
+  async function pauseAnnotation() {
+    if(!photo || pausing)return;
+    setPausing(true);setPauseError(false);
+    update(d=>({...d,annotationResume:{photoId:photo.id,step}}));
+    try{await workspace.flush();setScreen("batch");}
+    catch{setPauseError(true);}
+    finally{setPausing(false);}
+  }
+  const resumePhoto=data.photos.find(p=>p.id===data.annotationResume?.photoId);
+  function resumeAnnotation() {
+    const cursor=data.annotationResume;
+    if(!cursor || !resumePhoto || pausing)return;
+    openPhoto(resumePhoto);
+    const key=resumePhoto.batchId || `${resumePhoto.birdId||bird}:${resumePhoto.sessionId}`;
+    update(d=>({...d,batchStages:{...d.batchStages,[key]:Math.max(0,Math.min(5,cursor.step))}}));
   }
   const boxList =
     photo?.boxes.filter((b) => !category || b.category === category) || [];
@@ -477,6 +499,10 @@ function Home() {
               {t(message, { files: failedFiles })}
             </p>
           )}
+          {screen!=="annotate"&&resumePhoto&&<div className="resume-annotation">
+            <p>{t("Travail enregistré : {name} · {step}",{name:resumePhoto.name,step:steps[data.annotationResume!.step]||steps[0]})}</p>
+            <button className="primary" onClick={resumeAnnotation}>{t("Reprendre le travail enregistré")}</button>
+          </div>}
           {screen === "animals" && (
             <div className="animalgrid">
               {data.birds.map((b) => (
@@ -654,7 +680,7 @@ function Home() {
           {screen === "annotate" && photo && (
             <>
               <div className="lotbar">
-                <button onClick={() => setScreen("batch")}>
+                <button disabled={pausing} onClick={() => setScreen("batch")}>
                   {" "}
                   {t("← Retour au lot")}{" "}
                 </button>
@@ -663,27 +689,13 @@ function Home() {
                   {batch.findIndex((p) => p.id === photo.id) + 1}/{batch.length}{" "}
                   · {photo.name}
                 </span>
-                <select
-                  aria-label={t("Choisir une photo du lot")}
-                  value={photo.id}
-                  onChange={(e) => {
-                    const p = batch.find((p) => p.id === e.target.value);
-                    if (p) openPhoto(p);
-                  }}
-                >
-                  {batch.map((p, i) => (
-                    <option key={p.id} value={p.id}>
-                      {i + 1}. {p.name}
-                      {p.completed ? " ✓" : ""}
-                    </option>
-                  ))}
-                </select>
               </div>
               <nav className="steps" aria-label={t("Étapes d’annotation")}>
                 {steps.map((label, i) => (
                   <button
                     key={label}
                     aria-current={step === i ? "step" : undefined}
+                    disabled={pausing}
                     onClick={() => setStage(i)}
                   >
                     <span>{i + 1}</span>
@@ -699,19 +711,25 @@ function Home() {
                       {photo.width} × {photo.height}
                     </span>
                   </div>
+                  <BatchPhotoSelector photos={batch} active={photo.id} step={step} disabled={pausing} onSelect={openPhoto}/>
                   <AnnotationCanvas
                     key={photo.id}
                     photo={photo}
                     url={url}
                     category={category}
                     side={side}
-                    canDraw={canDraw}
+                    canDraw={canDraw && !pausing}
+                    onResize={(id,bbox)=>{
+                      const target=photo.boxes.find(box=>box.id===id);
+                      patchPhoto({boxes:photo.boxes.map(box=>box.id===id?{...box,bbox}:box),...(target?.category==="periocular_region"?showPeriocularRegion(photo,target.side):{})});
+                    }}
                     onReset={() => {
-                      if (category) answer({}, [category]);
+                      if (category) patchPhoto(resetAnnotationFrames(photo,category));
                     }}
                     onAdd={(bbox) => {
                       if (!category) return;
                       patchPhoto({
+                        ...(category==="periocular_region"?showPeriocularRegion(photo,side):{}),
                         boxes: [
                           ...photo.boxes,
                           {
@@ -761,6 +779,7 @@ function Home() {
                   )}
                 </section>
                 <section className="question">
+                  <fieldset disabled={pausing} className="annotation-form-fields">
                   <span className="eyebrow">
                     {" "}
                     {t("ÉTAPE")} {step + 1} / 6 ·{" "}
@@ -944,28 +963,19 @@ function Home() {
                       </p>
                     </>
                   )}
-                  <div className="stepactions">
-                    <button
-                      disabled={step === 0}
-                      onClick={() => setStage(Math.max(0, step - 1))}
-                    >
-                      {" "}
-                      {t("Précédent")}{" "}
-                    </button>
-                    <button
-                      className="primary"
-                      disabled={!stepValid(photo, step)}
-                      onClick={advance}
-                    >
-                      {step === 5
-                        ? t("Valider cette photo →")
-                        : t("Enregistrer et continuer →")}
+                  <div className="stepactions annotation-actions">
+                    <button disabled={pausing || step===0} onClick={()=>setStage(step-1)}>{t("Étape précédente")}</button>
+                    <button disabled={pausing || step===5} onClick={()=>setStage(step+1)}>{t("Étape suivante")}</button>
+                    <button className="primary" disabled={pausing || !stepValid(photo,step)} onClick={advance}>
+                      {t(step===5?"Valider cette photo →":"Valider et continuer →")}
                     </button>
                   </div>
-                  <button className="quiet" onClick={() => setScreen("batch")}>
-                    {" "}
-                    {t("Quitter et reprendre plus tard")}{" "}
+                  <p className="small">{t("Valider passe à la prochaine photo à traiter dans cette étape, puis à l’étape suivante en fin de lot.")}</p>
+                  <button className="quiet" disabled={pausing} onClick={()=>void pauseAnnotation()}>
+                    {t(pausing?"Enregistrement en ligne…":"Enregistrer et reprendre plus tard")}
                   </button>
+                  {pauseError&&<p role="alert">{t("La sauvegarde a échoué. Restez sur cette page et réessayez avant de quitter.")}</p>}
+                  </fieldset>
                 </section>
               </div>
             </>

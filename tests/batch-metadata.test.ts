@@ -33,5 +33,7 @@ test("explicit clearing stays unknown; completed photos are not changed on revis
 });
 test("animal deletion removes defaults for emptied batches but preserves other batch defaults",()=>{
   const input=dataset();input.batchMetadataDefaults={batch:{capturedAt:"2026-11-05",sessionId:"Matin"},"other-batch":{capturedAt:"",sessionId:"Other"}};
+  input.annotationResume={photoId:"a",step:2};
+  assert.equal(removeBird(input,"ara").annotationResume,undefined);
   assert.deepEqual(removeBird(input,"ara").batchMetadataDefaults,{"other-batch":{capturedAt:"",sessionId:"Other"}});
 });

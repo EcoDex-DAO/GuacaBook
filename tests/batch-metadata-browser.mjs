@@ -19,18 +19,18 @@ try {
   await page.getByLabel("Date et heure (sans fuseau)").fill("2026-11-05T12:40:45");
   await page.getByLabel("Séance",{exact:true}).fill("Matin");
   await page.getByRole("button",{name:"Nette / exploitable",exact:true}).click();
-  await page.getByRole("button",{name:"Enregistrer et continuer →",exact:true}).click();
+  await page.getByRole("button",{name:"Valider et continuer →",exact:true}).click();
   assert.equal(await page.getByLabel("Date et heure (sans fuseau)").inputValue(),"2026-11-05T12:40:45");
   assert.equal(await page.getByLabel("Séance",{exact:true}).inputValue(),"Matin");
   assert.equal(await page.getByRole("button",{name:"Nette / exploitable",exact:true}).getAttribute("aria-pressed"),"false");
-  assert.equal(await page.getByRole("button",{name:"Enregistrer et continuer →",exact:true}).isDisabled(),true);
+  assert.equal(await page.getByRole("button",{name:"Valider et continuer →",exact:true}).isDisabled(),true);
   await saved();await page.reload();
   await page.getByRole("button",{name:"Choisir cet animal →",exact:true}).click();await choose("photo-2.png");
   assert.equal(await page.getByLabel("Séance",{exact:true}).inputValue(),"Matin");
   assert.equal(rows.get(A).dataset.photos[1].metadataOrigin.capturedAt,"batch");
   await page.getByLabel("Date et heure (sans fuseau)").fill("");await page.getByLabel("Séance",{exact:true}).fill("");
   await page.getByRole("button",{name:"Floue / à refaire",exact:true}).click();
-  await page.getByRole("button",{name:"Enregistrer et continuer →",exact:true}).click();
+  await page.getByRole("button",{name:"Valider et continuer →",exact:true}).click();
   assert.equal(await page.getByLabel("Date et heure (sans fuseau)").inputValue(),"2020-01-02T09:10:11");
   assert.equal(await page.getByLabel("Séance",{exact:true}).inputValue(),"Existing session");
   // Direct photo selection also reuses values, without changing sharpness.
@@ -44,7 +44,7 @@ try {
   assert.equal(await page.getByLabel("Date et heure (sans fuseau)").inputValue(),"");
   assert.equal(await page.getByLabel("Séance",{exact:true}).inputValue(),"");
   await page.getByRole("button",{name:"Nette / exploitable",exact:true}).click();
-  await page.getByRole("button",{name:"Enregistrer et continuer →",exact:true}).click();
+  await page.getByRole("button",{name:"Valider et continuer →",exact:true}).click();
   // Visual height controls keep the chosen anatomical direction and save elevation.
   await page.getByRole("button",{name:"Profil droit",exact:true}).click();
   await page.getByRole("button",{name:"Au-dessus de l’ara",exact:true}).click();

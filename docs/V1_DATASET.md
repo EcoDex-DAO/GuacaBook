@@ -188,3 +188,44 @@ La hauteur de prise de vue se choisit avec trois boutons illustrant la position
 de l’appareil (au-dessus, à hauteur, en dessous), après le choix d’une orientation.
 Les valeurs restent +30°, 0° et −30° ; le bouton illustré « Point de vue inconnu »
 conserve une valeur nulle et ne déduit pas une hauteur ni un azimut.
+
+## Navigation et correction des cadres
+
+Le sélecteur du lot affiche le numéro courant, les noms et jusqu’à cinq vignettes
+voisines. Les boutons **Photo précédente/suivante** changent de photo dans la même
+étape ; **Étape précédente/suivante** consultent une autre tâche pour la même photo.
+Ces navigations ne valident rien. **Valider et continuer** confirme la tâche et
+avance selon le parcours en série ; la validation finale confirme la photo.
+
+**Enregistrer et reprendre plus tard** attend la sauvegarde en ligne avant de
+retourner au lot. En cas d’échec, l’éditeur reste ouvert. Le compte conserve
+`annotationResume` (photo/étape) ; **Reprendre le travail enregistré** restaure cet
+endroit après reconnexion ou rechargement. La fin d’un lot ou la suppression de
+la photo concernée retire le repère devenu inutile. Aucun nouveau stockage local
+ou migration SQL n’est introduit.
+
+Chaque cadre modifiable de l’étape/côté courant présente quatre poignées rondes.
+Les déplacer ajuste ses coins dans les pixels originaux, en respectant les bords
+de l’image et une taille minimale. Zoom, souris, tactile et flèches du clavier
+(Maj pour dix pixels) sont pris en charge. L’annulation d’un geste restaure le
+cadre ; un redimensionnement conserve son identifiant, sa catégorie et son animal,
+rend la photo à vérifier et est sauvegardé à la fin du geste. En mode déplacement
+de l’image, les poignées sont masquées pour ne pas confondre les deux actions.
+
+À l’étape des yeux, cinq choix directs remplacent les sélecteurs successifs :
+gauche, droit, face/deux yeux, inconnu, aucun œil. Le choix d’un côté de tracé
+réapparaît uniquement en mode deux yeux. Pour une seule région, le reset du canevas
+suffit ; les contrôles de reset par côté restent réservés au cas deux yeux.
+
+Le zoom à la molette garde le point visé par la souris comme ancrage, avec des
+limites pour conserver l’image accessible. Les boutons +/− utilisent le dernier
+point visé dans l’image (sinon le centre). « Ajuster à l’écran » recentre la vue
+entière. Le bouton « Déplacer l’image » reste disponible.
+
+Tracer une région périoculaire renseigne automatiquement sa visibilité. Le reset
+de toute l’étape efface les cadres et les réponses de visibilité ; le reset d’un
+seul côté préserve l’autre. Une région peut être déclarée **partiellement masquée
+ou coupée** (`partial`) et encadrée sur sa portion visible : tracer ou redimensionner
+ne remplace pas cette déclaration par une visibilité complète. « Non visible »
+est un choix distinct. Le COCO et le CSV générique conservent ce statut ; les régions
+partielles sont exclues du CSV Wild Me strict, même si la partie restante est nette.

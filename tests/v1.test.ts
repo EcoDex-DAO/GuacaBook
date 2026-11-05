@@ -13,6 +13,7 @@ test("V1 eligibility requires explicit quality, known side/identity, valid geome
   assert.deepEqual(regionReasons(data,s.photo,s.box,{annotation_id:s.box.id,decision:"accepted"}),[]);
   assert.ok(regionReasons(data,s.photo,s.box).includes("review_pending"));
   assert.ok(regionReasons(data,{...s.photo,quality:"blurry"},s.box).includes("photo_not_usable"));
+  assert.ok(regionReasons(data,{...s.photo,regionBySide:{left:"partial"}},s.box,{annotation_id:s.box.id,decision:"accepted"}).includes("region_partial"));
   assert.ok(regionReasons(data,s.photo,{...s.box,occluded:null}).includes("occlusion_or_unknown"));
   assert.ok(regionReasons(data,s.photo,{...s.box,usability:undefined}).includes("region_not_usable"));
   assert.ok(regionReasons(data,s.photo,{...s.box,bbox:[90,0,20,20]}).includes("invalid_bbox"));

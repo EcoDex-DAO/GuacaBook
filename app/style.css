@@ -790,3 +790,24 @@ footer.app-version { display: block; max-width: 1540px; margin: 12px auto; paddi
 .unknown-viewpoint { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 10px; }
 .unknown-viewpoint .height-glyph { width: 70px; flex-shrink: 0; }
 .height-options button[aria-pressed="true"], .unknown-viewpoint[aria-pressed="true"] { background: #264f40; color: #fff; border-color: #264f40; }
+
+.annotation-form-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.batch-photo-selector { position: static; padding: 12px; margin: 16px 0; background: #f7faf4; border: 1px solid #d9e3d2; box-shadow: 0 3px 12px #143a2a12; }
+.batch-photo-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.batch-photo-controls label { margin: 0; min-width: 0; text-align: center; font-size: 12px; }
+.batch-photo-controls select { width: 100%; min-width: 0; margin: 6px 0 0; padding: 8px; }
+.batch-photo-controls button { font-size: 12px; padding: 10px; }
+.batch-thumbnails { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
+.batch-thumbnails button { min-width: 0; width: 84px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; }
+.batch-thumbnails img { max-width: 100%; object-fit: cover; border-radius: 4px; }
+.batch-thumbnails button[aria-current="true"] { background: #264f40; color: white; outline: 2px solid #264f40; outline-offset: 1px; }
+.annotation-actions { flex-wrap: wrap; }
+.annotation-actions .primary { flex-grow: 1; }
+.resume-annotation { margin: 16px 0; padding: 16px; border-radius: 12px; background: #edf3e6; }
+@media (max-width: 600px) { .batch-photo-selector { padding: 8px; top: 4px; } .batch-photo-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; } .batch-photo-controls label { grid-column: 1 / -1; grid-row: 1; } .batch-photo-controls button { font-size: 11px; } .batch-thumbnails { gap: 5px; } .batch-thumbnails button { width: 55px; } .batch-thumbnails img { height: 40px; } }
+
+.eye-layout-options { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
+.eye-layout-options button { grid-column: span 2; min-width: 0; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; }
+.eye-layout-options button:nth-child(n+4) { grid-column: span 3; }
+.eye-layout-options .birdglyph { width: 64px; height: 56px; flex: none; }
+.eye-layout-options button[aria-pressed="true"] { background: #264f40; color: white; border-color: #264f40; }
