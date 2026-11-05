@@ -519,5 +519,22 @@
   "Seules les photos validées par un vérificateur sont incluses dans le dataset.": "Apenas as fotos validadas por um verificador são incluídas no conjunto de dados.",
   "photos annotées": "fotos anotadas",
   "Annotation terminée": "Anotação concluída",
-  "Terminer l’annotation →": "Concluir a anotação →"
+  "Terminer l’annotation →": "Concluir a anotação →",
+  "Partiellement hors cadre": "Parcialmente fora do enquadramento",
+  "Partiellement visible": "Parcialmente visível",
+  "Visible": "Visível",
+  "Inexploitable, cause non précisée": "Inutilizável, causa não especificada",
+  "Partiellement masquée": "Parcialmente oculta",
+  "Aucune obstruction": "Sem obstrução",
+  "Autre orientation": "Outra orientação",
+  "Vue complète": "Vista completa",
+  "Zone {number} : {zone}": "Zona {number}: {zone}",
+  "Les côtés sont ceux de l’animal. Le tiret indique une information non applicable.": "Os lados são os do animal. O travessão indica informação não aplicável.",
+  "Annotations à vérifier": "Anotações a verificar",
+  "Zone": "Zona",
+  "Côté": "Lado",
+  "Visibilité": "Visibilidade",
+  "Aucun cadre pour cette photo.": "Não há caixas para esta foto.",
+  "Détails techniques des cadres": "Detalhes técnicos das caixas",
+  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "As dimensões da foto não correspondem às anotações. Reveja as caixas antes de validar."
 }

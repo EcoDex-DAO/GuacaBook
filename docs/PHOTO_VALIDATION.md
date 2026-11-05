@@ -77,3 +77,14 @@ pages et les images de la page affichée. L’empreinte source est vérifiée à
 l’ouverture de la photo et lors de l’export. La carte de galerie peut donc montrer
 une décision basée sur les métadonnées avant qu’une modification des seuls octets
 source soit détectée à l’ouverture. Une telle photo est exclue à l’export.
+
+## Lire les annotations dans la galerie
+
+Le tableau sépare zone, côté anatomique, visibilité, netteté et masquage. Un tiret
+signifie non applicable : le corps n’a pas de côté gauche/droit à renseigner ici.
+Les couleurs et numéros correspondent aux cadres sur la photo. Cliquer sur une
+zone du tableau centre la vue sur son cadre ; « Vue complète » restaure la photo.
+Les coordonnées brutes restent disponibles dans les détails techniques, repliés
+par défaut. La consultation et le zoom ne modifient pas les annotations stockées.
+Les dimensions du fichier sont contrôlées au chargement ; leur incohérence avec
+les métadonnées bloque l’acceptation de la photo.

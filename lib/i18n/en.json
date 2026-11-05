@@ -519,5 +519,22 @@
   "Seules les photos validées par un vérificateur sont incluses dans le dataset.": "Only photos approved by a reviewer are included in the dataset.",
   "photos annotées": "photos annotated",
   "Annotation terminée": "Annotation complete",
-  "Terminer l’annotation →": "Finish annotation →"
+  "Terminer l’annotation →": "Finish annotation →",
+  "Partiellement hors cadre": "Partly outside the frame",
+  "Partiellement visible": "Partly visible",
+  "Visible": "Visible",
+  "Inexploitable, cause non précisée": "Unusable, cause unspecified",
+  "Partiellement masquée": "Partly occluded",
+  "Aucune obstruction": "No obstruction",
+  "Autre orientation": "Other orientation",
+  "Vue complète": "Full view",
+  "Zone {number} : {zone}": "Region {number}: {zone}",
+  "Les côtés sont ceux de l’animal. Le tiret indique une information non applicable.": "Sides refer to the animal. A dash means the information does not apply.",
+  "Annotations à vérifier": "Annotations to review",
+  "Zone": "Region",
+  "Côté": "Side",
+  "Visibilité": "Visibility",
+  "Aucun cadre pour cette photo.": "No annotation boxes for this photo.",
+  "Détails techniques des cadres": "Box technical details",
+  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "Photo dimensions do not match the annotations. Recheck the boxes before approval."
 }

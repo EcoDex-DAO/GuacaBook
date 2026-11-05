@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import {useAccount} from './AccountGate';
 import {useI18n} from './I18n';
+import PhotoReviewDetails from './PhotoReviewDetails';
 import {loadCloudDataset,type CloudRow} from '../../lib/cloud';
 import type {Dataset,Photo} from '../../lib/dataset';
 import {stepValid} from '../../lib/dataset';
@@ -12,7 +13,7 @@ export default function PhotoGallery({onEdit}:{onEdit:(photo:Photo)=>void}){
  const {client,user,account}=useAccount(),{t}=useI18n();
  const [rows,setRows]=useState<CloudRow[]>([]),[reviews,setReviews]=useState<PhotoReview[]>([]),[error,setError]=useState(''),[busy,setBusy]=useState(false);
  const [search,setSearch]=useState(''),[filter,setFilter]=useState('all'),[page,setPage]=useState(0),[selected,setSelected]=useState('');
- const [detail,setDetail]=useState<{dataset:Dataset;photo:Photo;hash:string;url:string}|null>(null);
+ const [detail,setDetail]=useState<{dataset:Dataset;photo:Photo;hash:string;url:string;dimensionsMatch:boolean}|null>(null);
  async function refresh(){
   if(!client)return;setBusy(true);setError('');
   try{
@@ -31,7 +32,9 @@ export default function PhotoGallery({onEdit}:{onEdit:(photo:Photo)=>void}){
   let live=true,url='';const row=selectedItem.row,id=selectedItem.photo.id;
   void loadCloudDataset(client,{...row,dataset:{...row.dataset,photos:row.dataset.photos.filter(p=>p.id===id)}}).then(async dataset=>{
    const photo=dataset.photos[0],hash=await photoHash(photo);if(!live)return;
-   url=URL.createObjectURL(photo.blob);setDetail({dataset,photo,hash,url});
+   const bitmap=await createImageBitmap(photo.blob,{imageOrientation:'from-image'});
+   const dimensionsMatch=bitmap.width===photo.width&&bitmap.height===photo.height;bitmap.close();
+   if(!live)return;url=URL.createObjectURL(photo.blob);setDetail({dataset,photo,hash,url,dimensionsMatch});
   }).catch(()=>{if(live)setError('Impossible de charger cette photo. Actualisez la galerie.');});
   return()=>{live=false;if(url)URL.revokeObjectURL(url);};
  },[client,selectedItem?.row,selectedItem?.photo.id]);
@@ -52,8 +55,6 @@ export default function PhotoGallery({onEdit}:{onEdit:(photo:Photo)=>void}){
    if(error)throw error;await refresh();
   }catch{setError('Validation impossible. La contribution a peut-être changé : actualisez avant de réessayer.');}finally{setBusy(false);}
  }
- const labels:Record<string,string>={usable:'Nette et exploitable',unusable:'Inexploitable',unreviewed:'À annoter',blurry:'Flou',sharp:'Net',pixelated:'Pixelisé',unknown:'Je ne sais pas',full:'Entier',partial:'Partiellement',not_visible:'Non visible',yes:'Oui',no:'Non',left:'gauche',right:'droite',both:'Deux yeux'};
- const label=(value:string|undefined)=>t(labels[value??'unknown']??value??'Je ne sais pas');
  const own=selectedItem?.row.owner_id===user?.id;
  const storedReview=selectedItem&&detail?decision(selectedItem.row,detail.photo):undefined;
  const currentReview=detail&&storedReview?.source_sha256===detail.hash?storedReview:undefined;
@@ -74,14 +75,10 @@ export default function PhotoGallery({onEdit}:{onEdit:(photo:Photo)=>void}){
   <div className="gallery-pagination"><button disabled={page===0} onClick={()=>setPage(page-1)}>{t('Page précédente')}</button><span>{page+1} / {Math.max(1,Math.ceil(filtered.length/12))}</span><button disabled={(page+1)*12>=filtered.length} onClick={()=>setPage(page+1)}>{t('Page suivante')}</button></div>
   {detail&&selectedItem&&<article className="photo-detail">
    <h2>{detail.photo.name}</h2><p>{t(states[currentReview?.decision??'pending'])}</p>
-   <svg className="review-photo-canvas" viewBox={`0 0 ${detail.photo.width} ${detail.photo.height}`} role="img" aria-label={t('Photo et cadres annotés')}>
-    <image href={detail.url} width={detail.photo.width} height={detail.photo.height}/>
-    {detail.photo.boxes.map((box,index)=><g key={box.id}><rect x={box.bbox[0]} y={box.bbox[1]} width={box.bbox[2]} height={box.bbox[3]} fill="none" stroke={box.category==='eye'?'#ffcf47':box.category==='macaw'?'#51e2c2':'#ed7cff'} strokeWidth={2} vectorEffect="non-scaling-stroke"/><text x={box.bbox[0]} y={Math.max(14,box.bbox[1]-4)} fill="white" fontSize={Math.max(12,detail.photo.width/70)}>{index+1}</text></g>)}
-   </svg>
-   <dl className="photo-properties">{Object.entries({[t('Animal')]:detail.dataset.birds.find(b=>b.id===detail.photo.birdId)?.name||detail.photo.birdId||'—',[t('Qualité')]:label(detail.photo.quality),[t('Corps')]:label(detail.photo.bodyVisibility),[t('Yeux visibles')]:`${label(detail.photo.eyeVisible)} · ${label(detail.photo.eyeLayout)}`,[t('Point de vue')]:detail.photo.viewpoint?`${detail.photo.viewpoint.azimuth}° / ${detail.photo.viewpoint.elevation}°`:t('Je ne sais pas'),[t('Date et séance')]:`${detail.photo.capturedAt||'—'} · ${detail.photo.sessionId||'—'}`}).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
-   <ol>{detail.photo.boxes.map(box=><li key={box.id}>{t(box.category==='macaw'?'Corps':box.category==='eye'?'Œil':'Région périoculaire')} · {label(box.side)} · {box.bbox.join(', ')}{box.category==='periocular_region'&&` · ${label(detail.photo.regionBySide?.[box.side]??detail.photo.regionVisible)} · ${label(box.sharpness??box.usability)} · ${t('Masquage de la région')}: ${box.occluded===true?t('Partiellement'):box.occluded===false?t('Complètement visible'):t('Je ne sais pas')}`}</li>)}</ol>
+   {!detail.dimensionsMatch&&<p role="alert">{t('Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.')}</p>}
+   <PhotoReviewDetails key={`${selectedItem.row.owner_id}:${detail.photo.id}`} photo={detail.photo} dataset={detail.dataset} url={detail.url}/>
    {own&&<button onClick={()=>onEdit(detail.photo)}>{t('Revérifier mes annotations')}</button>}
-   {account?.can_review_data&&!own&&<div className="cloudactions"><button className="primary" disabled={busy||!detail.photo.completed||!stepValid(detail.photo,5)||detail.photo.boxes.some(box=>!validBox(detail.photo,box))} onClick={()=>void reviewPhoto('accepted')}>{t('Valider cette photo pour le dataset')}</button><button disabled={busy} onClick={()=>void reviewPhoto('rejected')}>{t('Demander une correction')}</button></div>}
+   {account?.can_review_data&&!own&&<div className="cloudactions"><button className="primary" disabled={busy||!detail.dimensionsMatch||!detail.photo.completed||!stepValid(detail.photo,5)||detail.photo.boxes.some(box=>!validBox(detail.photo,box))} onClick={()=>void reviewPhoto('accepted')}>{t('Valider cette photo pour le dataset')}</button><button disabled={busy} onClick={()=>void reviewPhoto('rejected')}>{t('Demander une correction')}</button></div>}
    {account?.can_review_data&&own&&<p className="small">{t('Vos propres photos doivent être validées par un autre vérificateur.')}</p>}
   </article>}
  </section>;

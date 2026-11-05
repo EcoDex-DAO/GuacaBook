@@ -934,3 +934,13 @@ body:has(.annotation-workspace) footer.app-version { display: none; }
 .review-photo-canvas { width: 100%; height: min(60vh,600px); background: #172f27; }
 .photo-properties { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 10px; }
 .photo-properties dt { font-size: 12px; font-weight: bold; }.photo-properties dd { margin: 4px 0; overflow-wrap: anywhere; }
+.review-image-tools,.review-legend { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0; }
+.review-legend span { display:inline-flex; align-items:center; gap:6px; font-size:12px; }
+.review-legend i,.review-annotation-table i { display:inline-block; width:12px; height:12px; border:1px solid #203e33; border-radius:3px; flex-shrink:0; }
+.annotation-table-scroll { overflow-x:auto; }
+.review-annotation-table { border-collapse:collapse; width:100%; font-size:13px; }
+.review-annotation-table caption { text-align:left; font-weight:bold; padding:10px 0; }
+.review-annotation-table th,.review-annotation-table td { text-align:left; border-bottom:1px solid #dbe3d6; padding:10px; }
+.review-annotation-table th { font-weight:600; }
+.review-annotation-table button { display:flex; align-items:center; gap:8px; padding:7px; white-space:nowrap; }
+.review-technical { margin:16px 0; font-size:12px; }.review-technical summary { cursor:pointer; }
