@@ -472,5 +472,6 @@
   "Sur une vue de face non retournée, la gauche de l’animal est à droite de l’image. Si le côté est incertain, choisissez « Je ne sais pas » à l’étape des yeux.": "In an unmirrored front view, the animal’s left is on the right of the image. If unsure of the side, choose “I don’t know” in the eye step.",
   "La région de ce côté n’est pas visible": "The region on this side is not visible",
   "Région partiellement visible": "Partially visible region",
-  "Aide : comprendre le point de vue": "Help: understand the viewpoint"
+  "Aide : comprendre le point de vue": "Help: understand the viewpoint",
+  "Aide : zoom et cadres": "Help: zoom and annotation boxes"
 }

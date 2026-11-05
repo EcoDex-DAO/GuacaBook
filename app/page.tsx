@@ -409,7 +409,7 @@ function Home() {
       </main>
     );
   return (
-    <main>
+    <main className={screen==="annotate"&&photo&&tab==="dataset"?"annotation-workspace":undefined}>
       <LanguagePicker />
       {ready && user && <CloudPanel />}
       <header>
@@ -490,7 +490,7 @@ function Home() {
               </button>
             )}
           </div>
-          {message && (
+          {message && screen!=="annotate" && (
             <p role="alert" className="notice">
               {t(message, { files: failedFiles })}
             </p>
@@ -685,6 +685,7 @@ function Home() {
                   {batch.findIndex((p) => p.id === photo.id) + 1}/{batch.length}{" "}
                   · {photo.name}
                 </span>
+                <button className="workspace-animals" disabled={pausing} onClick={()=>setScreen("animals")}>{t("← Mes animaux")}</button>
               </div>
               <nav className="steps" aria-label={t("Étapes d’annotation")}>
                 {steps.map((label, i) => (
@@ -744,42 +745,11 @@ function Home() {
                       });
                     }}
                   />
-                  {boxList.length > 0 && (
-                    <ul className="annotations">
-                      {boxList.map((b, i) => (
-                        <li key={b.id}>
-                          <span>
-                            {i + 1}.{" "}
-                            {b.category === "macaw"
-                              ? t("Corps")
-                              : b.category === "eye"
-                                ? t("Œil")
-                                : t("Région périoculaire")}
-                            {b.category !== "macaw"
-                              ? ` · ${b.side === "left" ? t("gauche") : b.side === "right" ? t("droite") : t("côté inconnu")}`
-                              : ""}
-                          </span>
-                          {b.category === "periocular_region" && <RegionChecks box={b} index={i+1} onChange={patch=>patchPhoto({boxes:photo.boxes.map(box=>box.id===b.id?{...box,...patch}:box)})}/>}
-                          <button
-                            aria-label={t("Supprimer l’annotation {number}", {
-                              number: i + 1,
-                            })}
-                            onClick={() =>
-                              patchPhoto({
-                                boxes: photo.boxes.filter((x) => x.id !== b.id),
-                              })
-                            }
-                          >
-                            {" "}
-                            {t("Supprimer")}{" "}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+
                 </section>
                 <section className="question">
                   <fieldset disabled={pausing} className="annotation-form-fields">
+                  <div className="annotation-question-body">
                   <span className="eyebrow">
                     {" "}
                     {t("ÉTAPE")} {step + 1} / 6 ·{" "}
@@ -934,6 +904,39 @@ function Home() {
                       onChange={answer}
                     />
                   )}
+                  {category && boxList.length > 0 && (
+                    <ul className="annotations">
+                      {boxList.map((b, i) => (
+                        <li key={b.id}>
+                          <span>
+                            {i + 1}.{" "}
+                            {b.category === "macaw"
+                              ? t("Corps")
+                              : b.category === "eye"
+                                ? t("Œil")
+                                : t("Région périoculaire")}
+                            {b.category !== "macaw"
+                              ? ` · ${b.side === "left" ? t("gauche") : b.side === "right" ? t("droite") : t("côté inconnu")}`
+                              : ""}
+                          </span>
+                          {b.category === "periocular_region" && (photo.eyeLayout!=="both"||b.side===side) && <RegionChecks box={b} index={i+1} onChange={patch=>patchPhoto({boxes:photo.boxes.map(box=>box.id===b.id?{...box,...patch}:box)})}/>}
+                          <button
+                            aria-label={t("Supprimer l’annotation {number}", {
+                              number: i + 1,
+                            })}
+                            onClick={() =>
+                              patchPhoto({
+                                boxes: photo.boxes.filter((x) => x.id !== b.id),
+                              })
+                            }
+                          >
+                            {" "}
+                            {t("Supprimer")}{" "}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {step === 5 && (
                     <>
                       <p>
@@ -963,6 +966,9 @@ function Home() {
                       </p>
                     </>
                   )}
+                  </div>
+                  <div className="annotation-question-footer">
+                  {message&&<p role="alert" className="notice">{t(message,{files:failedFiles})}</p>}
                   <div className="stepactions annotation-actions">
                     <button disabled={pausing || step===0} onClick={()=>setStage(step-1)}>{t("Étape précédente")}</button>
                     <button disabled={pausing || step===5} onClick={()=>setStage(step+1)}>{t("Étape suivante")}</button>
@@ -975,6 +981,7 @@ function Home() {
                     {t(pausing?"Enregistrement en ligne…":"Enregistrer et reprendre plus tard")}
                   </button>
                   {pauseError&&<p role="alert">{t("La sauvegarde a échoué. Restez sur cette page et réessayez avant de quitter.")}</p>}
+                  </div>
                   </fieldset>
                 </section>
               </div>

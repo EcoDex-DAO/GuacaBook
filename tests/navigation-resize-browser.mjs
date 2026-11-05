@@ -20,11 +20,27 @@ try {
  assert.ok(rail.x+rail.width<=image.x && image.x+image.width<=questions.x);
  assert.equal(await page.locator(".imagepanel .batch-photo-selector").count(),0);
  const button=name=>page.getByRole("button",{name,exact:true});
+ await page.setViewportSize({width:1366,height:768});
+ async function workspaceFits(){
+   const dimensions=await page.evaluate(()=>({height:innerHeight,scroll:document.documentElement.scrollHeight,
+     body:document.querySelector(".annotation-question-body").getBoundingClientRect().bottom,
+     footer:document.querySelector(".annotation-question-footer").getBoundingClientRect().bottom}));
+   assert.ok(dimensions.scroll<=dimensions.height+1,JSON.stringify(dimensions));
+   assert.ok(dimensions.footer<=dimensions.height,JSON.stringify(dimensions));
+   await expect(button("Enregistrer et reprendre plus tard")).toBeInViewport({ratio:1});
+   await expect(page.locator(".annotation-workspace > .savestatus")).toBeInViewport({ratio:1});
+   await expect(page.locator(".accountbar")).toBeHidden();
+ }
+ await workspaceFits();
+ await page.screenshot({path:"/tmp/guacabook-workspace-quality.png"});
+
  async function saved(){await page.getByRole("status").filter({hasText:"Toutes les modifications sont enregistrées en ligne."}).first().waitFor();}
  await button("Photo suivante").click();assert.equal(await select.inputValue(),ids[1]);
  assert.equal(await page.locator(".steps button").nth(0).getAttribute("aria-current"),"step");
  await button("Photo précédente").click();assert.equal(await select.inputValue(),ids[0]);
  await button("Étape suivante").click();assert.equal(await select.inputValue(),ids[0]);
+ await workspaceFits();
+ await page.screenshot({path:"/tmp/guacabook-workspace-viewpoint.png"});
  assert.equal(await page.locator(".steps button").nth(1).getAttribute("aria-current"),"step");
  await button("Étape précédente").click();assert.equal(await button("Valider et continuer →").isDisabled(),true);
  await button("Nette / exploitable").click();await button("Valider et continuer →").click();
@@ -137,6 +153,7 @@ try {
  assert.equal(await visibleButton.getAttribute("aria-pressed"),"false");
  assert.equal(rows.get(A).dataset.photos[1].regionBySide.left,"partial");
  assert.equal(rows.get(A).dataset.photos[1].boxes.filter(b=>b.category==="periocular_region").length,1);
+ await workspaceFits();
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await page.screenshot({path:"/tmp/guacabook-rail-mobile.png",fullPage:true});
  await page.setViewportSize({width:1440,height:1100});

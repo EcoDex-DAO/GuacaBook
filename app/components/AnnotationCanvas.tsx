@@ -300,6 +300,7 @@ export default function AnnotationCanvas({
             );
           })()}
       </svg>
+      <details className="canvas-help"><summary>{t("Aide : zoom et cadres")}</summary>
       {canDraw&&mode==="draw"&&<p className="small">{t("Ajustez un cadre avec ses poignées rondes. Au clavier : flèches, ou Maj + flèches pour un déplacement plus grand.")}</p>}
       <p className="small">
         {" "}
@@ -307,6 +308,7 @@ export default function AnnotationCanvas({
           "Molette ou pincement pour zoomer. Activez « Déplacer l’image » pour explorer, puis désactivez-le pour tracer. « Ajuster à l’écran » restaure la vue entière.",
         )}{" "}
       </p>
+      </details>
     </>
   );
 }

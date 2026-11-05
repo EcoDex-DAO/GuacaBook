@@ -472,5 +472,6 @@
   "Sur une vue de face non retournée, la gauche de l’animal est à droite de l’image. Si le côté est incertain, choisissez « Je ne sais pas » à l’étape des yeux.": "En una vista frontal sin espejo, la izquierda del animal está a la derecha de la imagen. Si no sabes el lado, elige «No lo sé» en el paso de los ojos.",
   "La région de ce côté n’est pas visible": "La región de este lado no es visible",
   "Région partiellement visible": "Región parcialmente visible",
-  "Aide : comprendre le point de vue": "Ayuda: comprender el punto de vista"
+  "Aide : comprendre le point de vue": "Ayuda: comprender el punto de vista",
+  "Aide : zoom et cadres": "Ayuda: zoom y recuadros"
 }

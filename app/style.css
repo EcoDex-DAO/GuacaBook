@@ -831,3 +831,88 @@ footer.app-version { display: block; max-width: 1540px; margin: 12px auto; paddi
 .viewpoint-help { margin: 0 0 12px; border: 1px solid #d9e3d2; border-radius: 10px; padding: 10px 12px; background: #f7faf4; }
 .viewpoint-help summary { cursor: pointer; font-size: 13px; font-weight: 600; }
 .viewpoint-help-content { margin-top: 12px; }
+
+/* Focused annotation: keep the photograph and actions in the viewport. */
+body:has(.annotation-workspace) > .accountbar,
+body:has(.annotation-workspace) .accountbar,
+body:has(.annotation-workspace) footer.app-version { display: none; }
+.annotation-workspace > .languagebar,
+.annotation-workspace > .beta-notice,
+.annotation-workspace > header,
+.annotation-workspace > .tabs,
+.annotation-workspace > .pagehead,
+.annotation-workspace > footer,
+.annotation-workspace > .cloudpanel,
+.annotation-workspace > .legacy { display: none; }
+.annotation-workspace .lotbar { margin: 0; gap: 12px; }
+.annotation-workspace .lotbar span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-animals { margin-left: auto; flex-shrink: 0; }
+.annotation-workspace .question { padding: 16px; }
+.annotation-question-body { min-width: 0; }
+.annotation-question-footer { border-top: 1px solid #e4e9df; padding-top: 10px; }
+.annotation-workspace .question h2 { font-size: 22px; margin: 8px 0 12px; }
+.annotation-workspace .question p { margin: 10px 0; line-height: 1.5; }
+.annotation-workspace .question label { margin: 12px 0; }
+.annotation-workspace .question input,
+.annotation-workspace .question select { padding: 9px; margin-top: 4px; }
+.annotation-workspace .choices { margin: 12px 0; gap: 7px; }
+.annotation-workspace .choices button { padding: 8px 10px; font-size: 13px; gap: 10px; }
+.annotation-workspace .choices .birdglyph { width: 40px; height: 38px; }
+.annotation-workspace .drawhint { padding: 8px 10px; font-size: 12px; }
+.annotation-workspace .annotation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 0; }
+.annotation-workspace .annotation-actions .primary { grid-column: 1 / -1; }
+.annotation-workspace .annotation-actions button { padding: 8px; font-size: 12px; }
+.annotation-workspace .annotation-question-footer > .small { font-size: 10px; margin: 6px 0; }
+.annotation-workspace .annotation-question-footer > .quiet { width: 100%; margin: 0; padding: 7px; font-size: 12px; }
+.annotation-workspace .angles img { height: 46px; }
+.annotation-workspace .angles button { gap: 4px; padding: 5px 3px; }
+.annotation-workspace .height-picker { margin: 10px 0; }
+.annotation-workspace .height-picker legend { margin-bottom: 6px; }
+.annotation-workspace .height-options button { padding: 5px; gap: 3px; font-size: 11px; }
+.annotation-workspace .height-options .height-glyph { max-width: 76px; height: 46px; }
+.annotation-workspace .unknown-viewpoint { padding: 5px; font-size: 12px; }
+.annotation-workspace .unknown-viewpoint .height-glyph { width: 40px; height: 32px; }
+.annotation-workspace .eye-layout-options { margin: 12px 0; }
+.annotation-workspace .eye-layout-options .birdglyph { height: 44px; width: 50px; }
+.annotation-workspace .target-sides { gap: 8px; margin: 10px 0; }
+.annotation-workspace .target-sides button { padding: 6px; gap: 3px; }
+.annotation-workspace .target-sides .birdglyph { width: 46px; height: 38px; }
+.annotation-workspace .annotations { margin: 8px 0; }
+.annotation-workspace .annotations li { padding: 8px 0; gap: 6px; }
+.annotation-workspace .annotations button { padding: 5px 8px; }
+.annotation-workspace .region-checks { gap: 0; }
+.annotation-workspace .region-checks label { margin: 4px 0; font-size: 12px; }
+.annotation-workspace .region-checks select { padding: 6px; font-size: 12px; }
+.canvas-help { flex: none; font-size: 12px; color: #68766c; }
+.canvas-help summary { cursor: pointer; padding: 5px 0; }
+.canvas-help .small { margin: 6px 0; }
+@media (min-width: 951px) {
+  body:has(.annotation-workspace) { overflow: hidden; }
+  .annotation-workspace { position: fixed; inset: 0; z-index: 10; width: 100%; max-width: none; height: 100dvh; overflow: hidden; padding: 10px 12px 6px; background: #f4f5ef; display: grid; grid-template-rows: auto auto minmax(0,1fr) 18px; gap: 8px; }
+  .annotation-workspace .lotbar button { padding: 7px 12px; font-size: 12px; }
+  .annotation-workspace .lotbar span { font-size: 12px; }
+  .annotation-workspace .steps { margin: 0; gap: 6px; }
+  .annotation-workspace .steps button { padding: 8px 5px; }
+  .annotation-workspace .steps button span { height: 21px; width: 21px; line-height: 20px; }
+  .annotation-workspace .annotationgrid { min-height: 0; height: 100%; grid-template-columns: 88px minmax(0,1.25fr) minmax(360px,1fr); gap: 12px; align-items: stretch; }
+  .annotation-workspace .batch-photo-selector { position: static; min-height: 0; max-height: none; height: 100%; padding: 7px; }
+  .annotation-workspace .batch-thumbnails img { height: 48px; }
+  .annotation-workspace .imagepanel { position: static; display: flex; flex-direction: column; min-height: 0; height: 100%; max-height: none; padding: 14px; overflow: hidden; }
+  .annotation-workspace .sectionhead { font-size: 11px; gap: 10px; }
+  .annotation-workspace .canvas-tools { flex: none; margin-top: 8px; gap: 5px; }
+  .annotation-workspace .canvas-tools button { padding: 6px 8px; }
+  .annotation-workspace .zoom-canvas { flex: 1 1 0; min-height: 0; height: 0; margin: 10px 0 4px; }
+  .annotation-workspace .question { min-height: 0; height: 100%; overflow: hidden; }
+  .annotation-workspace .annotation-form-fields { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  .annotation-question-body { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; padding-right: 3px; }
+  .annotation-question-footer { flex: none; }
+  .annotation-workspace .annotation-actions { grid-template-columns: 1fr 1fr 1.35fr; }
+  .annotation-workspace .annotation-actions .primary { grid-column: auto; }
+  .annotation-workspace > .savestatus { margin: 0; padding: 0; border: 0; font-size: 11px; text-align: right; line-height: 18px; }
+}
+@media (max-width: 950px) {
+  .annotation-workspace { padding: 12px; }
+  .annotation-workspace .lotbar { flex-wrap: wrap; margin-bottom: 12px; }
+  .annotation-workspace .lotbar span { flex-basis: 100%; order: 3; }
+  .annotation-workspace .question { margin-bottom: 12px; }
+}

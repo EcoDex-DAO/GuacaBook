@@ -242,3 +242,12 @@ choix préalable, son côté reste inconnu. On peut ensuite préciser gauche ou 
 sans perdre ce cadre. La réinitialisation de l’étape corps ou yeux efface aussi
 les réponses correspondantes. Réinitialiser tous les yeux invalide les régions
 périoculaires dépendantes de cet animal ; les autres animaux restent intacts.
+
+Sur ordinateur, l’annotation occupe toute la fenêtre : barre de retour compacte,
+étapes, vignettes verticales, photo et formulaire. L’en-tête du site, les exports
+et l’administration restent accessibles après le retour au lot ou aux animaux.
+Les actions de validation et de pause restent au bas du formulaire, indépendamment
+du contenu. Les explications du zoom et des cadres sont repliables. Les contrôles
+de netteté et d’occlusion sont regroupés dans le formulaire, pour le côté courant
+sur les vues à deux yeux. Sur les petits écrans, les panneaux restent empilés ;
+les contenus longs et les aides ouvertes peuvent défiler dans leur propre panneau.
