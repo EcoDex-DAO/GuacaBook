@@ -46,8 +46,11 @@ export default function EyeGuide({
               return <button key={choice} type="button" aria-pressed={selected} onClick={()=>{
                 setSide(choice==="both"?"left":choice==="no"?"unknown":choice);
                 if(selected)return;
+                const assignDrawnEye=photo.eyeVisible==="yes"&&photo.eyeLayout==="unknown"&&(choice==="left"||choice==="right");
                 onChange({eyeVisible:visibleChoice?"yes":choice==="no"?"no":"unknown",
-                  eyeLayout:visibleChoice?choice:undefined,regionVisible:undefined,regionBySide:undefined},["eye","periocular_region"]);
+                  eyeLayout:visibleChoice?choice:undefined,regionVisible:undefined,regionBySide:undefined,
+                  ...(assignDrawnEye?{boxes:photo.boxes.filter(b=>b.birdId!==(photo.birdId||"")||b.category!=="periocular_region")
+                    .map(b=>b.birdId===(photo.birdId||"")&&b.category==="eye"?{...b,side:choice}:b)}:{})},assignDrawnEye?[]:["eye","periocular_region"]);
               }}>
                 <BirdGlyph view={view} highlight={visibleChoice?choice:undefined} variant={choice==="no"?"hidden":choice==="unknown"?"unknown":undefined}/>
                 <span>{t(label)}</span>

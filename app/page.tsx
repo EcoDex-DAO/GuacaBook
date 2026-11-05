@@ -3,7 +3,7 @@ import { useI18n, LanguagePicker } from "./components/I18n";
 import { useEffect, useState } from "react";
 import { useCloudWorkspace } from "../lib/useCloudWorkspace";
 import { inheritBatchMetadata, rememberBatchMetadata } from "../lib/batchMetadata";
-import {resetAnnotationFrames,showPeriocularRegion} from "../lib/annotationActions";
+import {resetAnnotationFrames,showAnnotationFrame} from "../lib/annotationActions";
 import BatchPhotoSelector from "./components/BatchPhotoSelector";
 import RegionChecks from "./components/RegionChecks";
 import { buildV1Archive } from "../lib/v1Archive";
@@ -259,11 +259,7 @@ function Home() {
   const canDraw =
     !!photo &&
     !!category &&
-    (step === 2
-      ? ["full", "partial"].includes(photo.bodyVisibility || "")
-      : step === 3
-        ? photo.eyeVisible === "yes" && !!photo.eyeLayout
-        : photo.eyeVisible === "yes" && !!photo.eyeLayout);
+    (step === 2 || step === 3 || (photo.eyeVisible === "yes" && !!photo.eyeLayout));
   function answer(patch: Partial<Photo>, remove: Box["category"][] = []) {
     if (!photo) return;
     patchPhoto({
@@ -704,6 +700,7 @@ function Home() {
                 ))}
               </nav>
               <div className="annotationgrid">
+                <BatchPhotoSelector photos={batch} active={photo.id} step={step} disabled={pausing} onSelect={openPhoto}/>
                 <section className="imagepanel">
                   <div className="sectionhead">
                     <strong>{photo.name}</strong>
@@ -711,7 +708,6 @@ function Home() {
                       {photo.width} × {photo.height}
                     </span>
                   </div>
-                  <BatchPhotoSelector photos={batch} active={photo.id} step={step} disabled={pausing} onSelect={openPhoto}/>
                   <AnnotationCanvas
                     key={photo.id}
                     photo={photo}
@@ -721,22 +717,26 @@ function Home() {
                     canDraw={canDraw && !pausing}
                     onResize={(id,bbox)=>{
                       const target=photo.boxes.find(box=>box.id===id);
-                      patchPhoto({boxes:photo.boxes.map(box=>box.id===id?{...box,bbox}:box),...(target?.category==="periocular_region"?showPeriocularRegion(photo,target.side):{})});
+                      patchPhoto({boxes:photo.boxes.map(box=>box.id===id?{...box,bbox}:box),...(target?showAnnotationFrame(photo,target.category,target.side):{})});
                     }}
                     onReset={() => {
-                      if (category) patchPhoto(resetAnnotationFrames(photo,category));
+                      if (category) {
+                        patchPhoto(resetAnnotationFrames(photo,category));
+                        if(category==="eye")setSide("unknown");
+                      }
                     }}
                     onAdd={(bbox) => {
                       if (!category) return;
+                      const drawnSide=category==="macaw"||category==="eye"&&!photo.eyeLayout?"unknown":side;
                       patchPhoto({
-                        ...(category==="periocular_region"?showPeriocularRegion(photo,side):{}),
+                        ...showAnnotationFrame(photo,category,drawnSide),
                         boxes: [
                           ...photo.boxes,
                           {
                             id: uid(),
                             category,
                             birdId: photo.birdId || "",
-                            side: category === "macaw" ? "unknown" : side,
+                            side: drawnSide,
                             bbox,
                             ...(category === "periocular_region" ? { usability: "unknown" as const, occluded: null } : {}),
                           },

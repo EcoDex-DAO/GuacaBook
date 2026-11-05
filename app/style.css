@@ -792,22 +792,42 @@ footer.app-version { display: block; max-width: 1540px; margin: 12px auto; paddi
 .height-options button[aria-pressed="true"], .unknown-viewpoint[aria-pressed="true"] { background: #264f40; color: #fff; border-color: #264f40; }
 
 .annotation-form-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
-.batch-photo-selector { position: static; padding: 12px; margin: 16px 0; background: #f7faf4; border: 1px solid #d9e3d2; box-shadow: 0 3px 12px #143a2a12; }
-.batch-photo-controls { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: end; }
-.batch-photo-controls label { margin: 0; min-width: 0; text-align: center; font-size: 12px; }
-.batch-photo-controls select { width: 100%; min-width: 0; margin: 6px 0 0; padding: 8px; }
-.batch-photo-controls button { font-size: 12px; padding: 10px; }
-.batch-thumbnails { display: flex; justify-content: center; gap: 8px; margin-top: 8px; }
-.batch-thumbnails button { min-width: 0; width: 84px; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; }
-.batch-thumbnails img { max-width: 100%; object-fit: cover; border-radius: 4px; }
-.batch-thumbnails button[aria-current="true"] { background: #264f40; color: white; outline: 2px solid #264f40; outline-offset: 1px; }
 .annotation-actions { flex-wrap: wrap; }
 .annotation-actions .primary { flex-grow: 1; }
 .resume-annotation { margin: 16px 0; padding: 16px; border-radius: 12px; background: #edf3e6; }
-@media (max-width: 600px) { .batch-photo-selector { padding: 8px; top: 4px; } .batch-photo-controls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; } .batch-photo-controls label { grid-column: 1 / -1; grid-row: 1; } .batch-photo-controls button { font-size: 11px; } .batch-thumbnails { gap: 5px; } .batch-thumbnails button { width: 55px; } .batch-thumbnails img { height: 40px; } }
+
 
 .eye-layout-options { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 8px; margin: 12px 0; }
 .eye-layout-options button { grid-column: span 2; min-width: 0; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 12px; }
 .eye-layout-options button:nth-child(n+4) { grid-column: span 3; }
 .eye-layout-options .birdglyph { width: 64px; height: 56px; flex: none; }
 .eye-layout-options button[aria-pressed="true"] { background: #264f40; color: white; border-color: #264f40; }
+
+/* Annotation workspace: batch rail, photo, questions. */
+.annotationgrid { grid-template-columns: 104px minmax(0, 1.35fr) minmax(320px, 1fr); gap: 16px; }
+.batch-photo-selector { position: sticky; top: 20px; min-width: 0; max-height: calc(100dvh - 40px); margin: 0; padding: 8px; background: #f7faf4; border: 1px solid #d9e3d2; display: flex; flex-direction: column; gap: 8px; }
+.batch-photo-controls { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 4px; }
+.batch-photo-controls label { grid-column: 1 / -1; grid-row: 1; min-width: 0; text-align: center; margin: 0; font-size: 11px; }
+.batch-photo-controls select { display: block; width: 100%; min-width: 0; padding: 5px; margin: 4px 0 0; font-size: 10px; }
+.batch-photo-controls button { min-width: 0; padding: 3px 6px; font-size: 22px; line-height: 1; }
+.batch-thumbnails { position: relative; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 3px; overscroll-behavior: contain; }
+.batch-thumbnails button { flex: 0 0 auto; min-width: 0; width: 100%; padding: 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; }
+.batch-thumbnails img { width: 100%; height: 54px; object-fit: cover; border-radius: 4px; }
+.batch-thumbnails button[aria-current="true"] { background: #264f40; color: white; outline: 2px solid #264f40; outline-offset: 1px; }
+@media (max-width: 1100px) and (min-width: 951px) { .annotationgrid { grid-template-columns: 86px minmax(0,1fr) minmax(300px,1fr); gap: 12px; } }
+@media (max-width: 950px) {
+  .annotationgrid { grid-template-columns: minmax(0,1fr); }
+  .batch-photo-selector { position: static; max-height: none; padding: 8px; }
+  .batch-photo-controls { grid-template-columns: 36px minmax(0,1fr) 36px; align-items: center; }
+  .batch-photo-controls label { grid-column: 2; grid-row: 1; }
+  .batch-photo-controls button:first-child { grid-column: 1; grid-row: 1; }
+  .batch-photo-controls button:last-child { grid-column: 3; grid-row: 1; }
+  .batch-photo-controls select { max-width: 360px; margin: 4px auto 0; font-size: 12px; }
+  .batch-thumbnails { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .batch-thumbnails button { flex-basis: 64px; width: 64px; }
+  .batch-thumbnails img { height: 44px; }
+}
+
+.viewpoint-help { margin: 0 0 12px; border: 1px solid #d9e3d2; border-radius: 10px; padding: 10px 12px; background: #f7faf4; }
+.viewpoint-help summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.viewpoint-help-content { margin-top: 12px; }

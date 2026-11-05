@@ -14,6 +14,11 @@ try {
  const select=page.getByLabel("Choisir une photo du lot");
  await expect(select.locator("option")).toHaveCount(3);
  const ids=await select.locator("option").evaluateAll(options=>options.map(o=>o.value));
+ const rail=await page.locator(".batch-photo-selector").boundingBox();
+ const image=await page.locator(".imagepanel").boundingBox();
+ const questions=await page.locator(".question").boundingBox();
+ assert.ok(rail.x+rail.width<=image.x && image.x+image.width<=questions.x);
+ assert.equal(await page.locator(".imagepanel .batch-photo-selector").count(),0);
  const button=name=>page.getByRole("button",{name,exact:true});
  async function saved(){await page.getByRole("status").filter({hasText:"Toutes les modifications sont enregistrées en ligne."}).first().waitFor();}
  await button("Photo suivante").click();assert.equal(await select.inputValue(),ids[1]);
@@ -27,9 +32,15 @@ try {
  assert.equal(await page.locator(".steps button").nth(0).getAttribute("aria-current"),"step");
  assert.equal(await button("Nette / exploitable").getAttribute("aria-pressed"),"false");
  await button("Étape suivante").click();await button("Étape suivante").click();
- await button("Non, une partie est hors cadre").click();
  async function point(x,y){return page.locator("svg.zoom-canvas").evaluate((svg,p)=>{const m=svg.getScreenCTM(),v=new DOMPoint(p.x,p.y).matrixTransform(m);return {x:v.x,y:v.y};},{x,y});}
  await page.locator("svg.zoom-canvas").scrollIntoViewIfNeeded();
+ let first=await point(150,110),last=await point(220,175);
+ await page.mouse.move(first.x,first.y);await page.mouse.down();await page.mouse.move(last.x,last.y,{steps:6});await page.mouse.up();
+ await expect(button("Oui, l’ara est entier")).toHaveAttribute("aria-pressed","true");
+ await button("Réinitialiser les cadres de l’étape").click();
+ for(const label of ["Oui, l’ara est entier","Non, une partie est hors cadre","Le corps n’est pas visible","Je ne sais pas"])
+   await expect(button(label)).toHaveAttribute("aria-pressed","false");
+ await button("Non, une partie est hors cadre").click();
  const a=await point(140,110),b=await point(240,190);
  await page.mouse.move(a.x,a.y);await page.mouse.down();await page.mouse.move(b.x,b.y,{steps:8});await page.mouse.up();await saved();
  const id=rows.get(A).dataset.photos[1].boxes[0].id;
@@ -84,6 +95,18 @@ try {
  await button("Étape suivante").click();
  assert.equal(await page.locator(".eye-layout-options button").count(),5);
  assert.equal(await button("Oui, au moins un œil visible").count(),0);
+ await page.locator("svg.zoom-canvas").scrollIntoViewIfNeeded();
+ first=await point(150,110);last=await point(200,150);
+ await page.mouse.move(first.x,first.y);await page.mouse.down();await page.mouse.move(last.x,last.y,{steps:6});await page.mouse.up();await saved();
+ let eye=rows.get(A).dataset.photos[1].boxes.find(b=>b.category==="eye");
+ assert.ok(eye);assert.equal(eye.side,"unknown");
+ assert.equal(rows.get(A).dataset.photos[1].eyeVisible,"yes");
+ await button("Œil droit").click();await saved();
+ assert.equal(rows.get(A).dataset.photos[1].boxes.find(b=>b.id===eye.id).side,"right");
+ await expect(button("Œil droit")).toHaveAttribute("aria-pressed","true");
+ await button("Réinitialiser les cadres de l’étape").click();
+ for(const choice of await page.locator(".eye-layout-options button").all())await expect(choice).toHaveAttribute("aria-pressed","false");
+ await saved();assert.equal(rows.get(A).dataset.photos[1].boxes.some(b=>b.category==="eye"),false);
  await button("Œil gauche").click();
  assert.equal(await page.locator(".target-sides").count(),0);
  assert.equal(await button("Réinitialiser ce côté uniquement").count(),0);
@@ -115,6 +138,8 @@ try {
  assert.equal(rows.get(A).dataset.photos[1].regionBySide.left,"partial");
  assert.equal(rows.get(A).dataset.photos[1].boxes.filter(b=>b.category==="periocular_region").length,1);
  await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
- await page.screenshot({path:"/tmp/guacabook-navigation-resize.png",fullPage:true});
+ await page.screenshot({path:"/tmp/guacabook-rail-mobile.png",fullPage:true});
+ await page.setViewportSize({width:1440,height:1100});
+ await page.locator(".annotationgrid").screenshot({path:"/tmp/guacabook-rail-desktop.png"});
  console.log("PASS: distinct photo/step navigation, explicit validation, zoomed mouse/keyboard/touch resize, cancel, save failure/retry and exact cloud resume (simulated API).");
 } finally {await browser.close();}

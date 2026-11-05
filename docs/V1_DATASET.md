@@ -191,8 +191,9 @@ conserve une valeur nulle et ne déduit pas une hauteur ni un azimut.
 
 ## Navigation et correction des cadres
 
-Le sélecteur du lot affiche le numéro courant, les noms et jusqu’à cinq vignettes
-voisines. Les boutons **Photo précédente/suivante** changent de photo dans la même
+Le sélecteur du lot affiche le numéro courant et les photos dans une colonne
+verticale à gauche de l’image sur ordinateur, puis dans une bande horizontale sur
+mobile. Le défilement reste interne à cette liste et garde la photo courante visible. Les boutons **Photo précédente/suivante** changent de photo dans la même
 étape ; **Étape précédente/suivante** consultent une autre tâche pour la même photo.
 Ces navigations ne valident rien. **Valider et continuer** confirme la tâche et
 avance selon le parcours en série ; la validation finale confirme la photo.
@@ -229,3 +230,15 @@ ou coupée** (`partial`) et encadrée sur sa portion visible : tracer ou redimen
 ne remplace pas cette déclaration par une visibilité complète. « Non visible »
 est un choix distinct. Le COCO et le CSV générique conservent ce statut ; les régions
 partielles sont exclues du CSV Wild Me strict, même si la partie restante est nette.
+
+La grande vue 3D est rangée dans une aide repliable fermée par défaut. Les choix
+d’orientation et de hauteur restent accessibles sans l’ouvrir. Le rendu WebGL n’est
+créé que pendant l’ouverture de l’aide et est libéré à sa fermeture ; l’orientation
+saisie reste inchangée.
+
+Tracer directement le corps sélectionne « Oui, l’ara est entier », sauf si le corps
+était explicitement déclaré partiel. Tracer un œil confirme sa visibilité ; sans
+choix préalable, son côté reste inconnu. On peut ensuite préciser gauche ou droite
+sans perdre ce cadre. La réinitialisation de l’étape corps ou yeux efface aussi
+les réponses correspondantes. Réinitialiser tous les yeux invalide les régions
+périoculaires dépendantes de cet animal ; les autres animaux restent intacts.

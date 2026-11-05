@@ -33,6 +33,8 @@ try {
   await page
     .getByRole("button", { name: "Valider et continuer →" })
     .click();
+  await page.getByText("Aide : comprendre le point de vue",{exact:true}).click();
+  await page.locator(".reference canvas").waitFor();
   for (const [label, a] of [
     ["Face", 0],
     ["Trois-quarts droit", 45],

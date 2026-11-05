@@ -12,10 +12,12 @@ export default function ViewReference({
   onChange: (v: { azimuth: number; elevation: number } | null) => void;
 }) {
   const { t } = useI18n();
+  const [helpOpen,setHelpOpen]=useState(false);
   const host = useRef<HTMLDivElement>(null),
     [failed, setFailed] = useState(false);
   useEffect(() => {
-    if (!host.current) return;
+    if (!helpOpen || !host.current) return;
+    setFailed(false);
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -102,7 +104,7 @@ export default function ViewReference({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [value?.azimuth, value?.elevation]);
+  }, [helpOpen,value?.azimuth, value?.elevation]);
   const angles = [
     [t("Face"), 0],
     [t("Trois-quarts droit"), 45],
@@ -115,6 +117,9 @@ export default function ViewReference({
   ] as const;
   return (
     <div className="reference">
+      <details className="viewpoint-help" open={helpOpen} onToggle={event=>setHelpOpen(event.currentTarget.open)}>
+        <summary>{t("Aide : comprendre le point de vue")}</summary>
+        {helpOpen&&<div className="viewpoint-help-content">
       <div
         ref={host}
         role="img"
@@ -136,6 +141,8 @@ export default function ViewReference({
           "Comparez la silhouette à votre photo : le modèle est cadré depuis le point de vue choisi. Les côtés sont anatomiques. Modèle schématique provisoire.",
         )}{" "}
       </p>
+        </div>}
+      </details>
       <div className="angles">
         {angles.map(([label, a]) => (
           <button

@@ -101,10 +101,16 @@ try {
   await stage(1);
   await assertPhoto(0);
   await page.getByRole("button", { name: "Face", exact: true }).click();
+  assert.equal(await page.locator(".reference canvas").count(), 0);
+  await page.getByText("Aide : comprendre le point de vue",{exact:true}).click();
+  await page.locator(".reference canvas").waitFor();
   assert.equal(await page.locator(".reference canvas").count(), 1);
   await page
     .locator(".reference")
     .screenshot({ path: "/tmp/guacabook-reference.png" });
+  await page.getByText("Aide : comprendre le point de vue",{exact:true}).click();
+  await page.locator(".reference canvas").waitFor({state:"detached"});
+  assert.equal(await page.getByRole("button",{name:"Face",exact:true}).getAttribute("aria-pressed"),"true");
   await next();
   await stage(1);
   await assertPhoto(1);
