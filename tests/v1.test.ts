@@ -5,7 +5,7 @@ import { Dataset } from "../lib/dataset";
 function sample(id:string,identity="a",day="2026-01-01"): Candidate {
   const bird={id:identity,name:"",species:"Ara ararauna"};
   const box={id:`box-${id}`,birdId:identity,category:"periocular_region" as const,side:"left" as const,bbox:[0,0,10,10] as [number,number,number,number],usability:"usable" as const,occluded:false};
-  const photo={id,name:`${id}.png`,width:100,height:100,blob:new Blob(),capturedAt:day,sessionId:day,quality:"usable" as const,completed:true,bodyVisibility:"not_visible" as const,eyeVisible:"no" as const,viewpoint:null,boxes:[box]};
+  const photo={id,birdId:identity,name:`${id}.png`,width:100,height:100,blob:new Blob(),capturedAt:day,sessionId:day,quality:"usable" as const,completed:true,bodyVisibility:"not_visible" as const,eyeVisible:"yes" as const,eyeLayout:"left" as const,regionBySide:{left:"yes" as const},viewpoint:null,boxes:[{...box,id:`eye-${id}`,category:"eye" as const},box]};
   return {photo,box,bird,path:`${id}.png`,sha256:id};
 }
 test("V1 eligibility requires explicit quality, known side/identity, valid geometry and scientific review",()=>{
@@ -16,6 +16,10 @@ test("V1 eligibility requires explicit quality, known side/identity, valid geome
   assert.ok(regionReasons(data,{...s.photo,regionBySide:{left:"partial"}},s.box,{annotation_id:s.box.id,decision:"accepted"}).includes("region_partial"));
   assert.ok(regionReasons(data,s.photo,{...s.box,occluded:null}).includes("occlusion_or_unknown"));
   assert.ok(regionReasons(data,s.photo,{...s.box,usability:undefined}).includes("region_not_usable"));
+  assert.ok(regionReasons(data,s.photo,{...s.box,sharpness:"pixelated"}).includes("region_not_usable"));
+  assert.ok(regionReasons(data,s.photo,{...s.box,sharpness:"blurry"}).includes("region_not_usable"));
+  assert.ok(regionReasons(data,{...s.photo,eyeVisible:"no"},s.box).includes("eye_not_visible"));
+  assert.ok(regionReasons(data,{...s.photo,regionBySide:{left:"unknown"}},s.box).includes("region_visibility_unknown"));
   assert.ok(regionReasons(data,s.photo,{...s.box,bbox:[90,0,20,20]}).includes("invalid_bbox"));
   assert.ok(regionReasons(data,s.photo,{...s.box,side:"unknown"}).includes("side_unknown"));
 });

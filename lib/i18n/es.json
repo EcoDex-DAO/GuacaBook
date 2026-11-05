@@ -473,5 +473,13 @@
   "La région de ce côté n’est pas visible": "La región de este lado no es visible",
   "Région partiellement visible": "Región parcialmente visible",
   "Aide : comprendre le point de vue": "Ayuda: comprender el punto de vista",
-  "Aide : zoom et cadres": "Ayuda: zoom y recuadros"
+  "Aide : zoom et cadres": "Ayuda: zoom y recuadros",
+  "Net": "Nítida",
+  "Flou": "Borrosa",
+  "Pixelisé": "Pixelada",
+  "Complètement visible": "Completamente visible",
+  "Partiellement": "Parcialmente",
+  "Cachée": "Oculta",
+  "Masquage de la région": "Oclusión de la región",
+  "Ancienne annotation : inexploitable, cause non précisée.": "Anotación anterior: no utilizable, causa sin especificar."
 }

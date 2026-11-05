@@ -258,3 +258,13 @@ Le lot poursuit cette étape sur les photos concernées, puis passe à la valida
 Une réponse encore non validée ou « Je ne sais pas » ne déclenche pas ce saut.
 Reprendre un ancien curseur sur cette étape non applicable effectue le même saut ;
 revenir en arrière depuis la validation mène directement aux yeux pour ces photos.
+
+## Saisie rapide des caractéristiques périoculaires
+
+Les anciens menus de netteté et de masquage sont remplacés par des boutons.
+La netteté détaillée `sharpness` distingue net, flou, pixelisé et inconnu, tout en
+conservant `usability` pour les anciens exports. Elle est exportée dans les
+attributs COCO et dans `regions.csv`. Les anciens « inexploitable » ne sont pas
+requalifiés arbitrairement en flous. « Cachée » retire les cadres de la région du
+côté concerné et enregistre son absence, sans effacer les yeux ni l’autre côté.
+Le cadrage et le masquage restent séparés. Voir [les scénarios](ANNOTATION_SCENARIOS.md).

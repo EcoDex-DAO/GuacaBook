@@ -20,3 +20,12 @@ export function resetAnnotationFrames(photo:Photo,category:Box["category"],side?
   if(side!==undefined)delete regions[side];
   return {boxes,regionVisible:undefined,regionBySide:side!==undefined&&Object.keys(regions).length?regions:undefined};
 }
+
+export function regionSharpness(value:NonNullable<Box["sharpness"]>):Partial<Box> {
+  return {sharpness:value,usability:value==="sharp"?"usable":value==="unknown"?"unknown":"unusable"};
+}
+export function hidePeriocularRegion(photo:Photo,side:Box["side"]):Partial<Photo> {
+  return {...resetAnnotationFrames(photo,"periocular_region",side),
+    regionBySide:{...photo.regionBySide,[side]:"no"},
+    regionVisible:photo.eyeLayout==="both"?undefined:"no"};
+}

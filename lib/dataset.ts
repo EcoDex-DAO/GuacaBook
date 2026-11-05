@@ -8,6 +8,7 @@ export type Box = {
   side: "left" | "right" | "unknown";
   bbox: [number, number, number, number];
   usability?: "usable" | "unusable" | "unknown";
+  sharpness?: "sharp" | "blurry" | "pixelated" | "unknown";
   occluded?: boolean | null;
 };
 export type Photo = {
@@ -119,6 +120,7 @@ export function coco(data: Dataset) {
             orientation: b.side,
             occluded: b.occluded ?? null,
             usability: b.usability ?? "unknown",
+            sharpness: b.sharpness ?? (b.usability === "usable" ? "sharp" : null),
             visibility: b.category === "periocular_region" ? p.regionBySide?.[b.side] ?? (p.eyeLayout === "both" ? null : p.regionVisible ?? null) : null,
           },
           guacabook: {

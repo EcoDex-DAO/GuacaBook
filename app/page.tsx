@@ -3,7 +3,7 @@ import { useI18n, LanguagePicker } from "./components/I18n";
 import { useEffect, useState } from "react";
 import { useCloudWorkspace } from "../lib/useCloudWorkspace";
 import { inheritBatchMetadata, rememberBatchMetadata } from "../lib/batchMetadata";
-import {resetAnnotationFrames,showAnnotationFrame} from "../lib/annotationActions";
+import {resetAnnotationFrames,showAnnotationFrame,hidePeriocularRegion} from "../lib/annotationActions";
 import BatchPhotoSelector from "./components/BatchPhotoSelector";
 import RegionChecks from "./components/RegionChecks";
 import { buildV1Archive } from "../lib/v1Archive";
@@ -929,7 +929,7 @@ function Home() {
                               ? ` · ${b.side === "left" ? t("gauche") : b.side === "right" ? t("droite") : t("côté inconnu")}`
                               : ""}
                           </span>
-                          {b.category === "periocular_region" && (photo.eyeLayout!=="both"||b.side===side) && <RegionChecks box={b} index={i+1} onChange={patch=>patchPhoto({boxes:photo.boxes.map(box=>box.id===b.id?{...box,...patch}:box)})}/>}
+                          {b.category === "periocular_region" && (photo.eyeLayout!=="both"||b.side===side) && <RegionChecks box={b} index={i+1} onHidden={()=>patchPhoto(hidePeriocularRegion(photo,b.side))} onChange={patch=>patchPhoto({boxes:photo.boxes.map(box=>box.id===b.id?{...box,...patch}:box)})}/>}
                           <button
                             aria-label={t("Supprimer l’annotation {number}", {
                               number: i + 1,

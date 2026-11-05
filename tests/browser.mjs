@@ -1,7 +1,7 @@
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
-import { setup, signIn } from "./supabase-mock.mjs";
+import { setup, signIn, rows, A } from "./supabase-mock.mjs";
 import { readFile } from "node:fs/promises";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -209,6 +209,20 @@ try {
     })
     .click();
   await box(500, 1000, 200, 200);
+  const regionQuality=page.getByRole("group",{name:"Netteté de la région · 1",exact:true});
+  const regionOcclusion=page.getByRole("group",{name:"Occlusion de la région · 1",exact:true});
+  assert.equal(await page.locator(".region-checks select").count(),0);
+  await regionQuality.getByRole("button",{name:"Pixelisé",exact:true}).click();
+  await expect(regionQuality.getByRole("button",{name:"Pixelisé",exact:true})).toHaveAttribute("aria-pressed","true");
+  await expect.poll(()=>rows.get(A).dataset.photos[0].boxes.find(b=>b.category==="periocular_region")?.sharpness).toBe("pixelated");
+  await regionOcclusion.getByRole("button",{name:"Partiellement",exact:true}).click();
+  await expect.poll(()=>rows.get(A).dataset.photos[0].boxes.find(b=>b.category==="periocular_region")?.occluded).toBe(true);
+  await regionOcclusion.getByRole("button",{name:"Cachée",exact:true}).click();
+  await expect(page.locator("svg.zoom-canvas rect")).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"La région de ce côté n’est pas visible",exact:true})).toHaveAttribute("aria-pressed","true");
+  await box(500, 1000, 200, 200);
+  await regionQuality.getByRole("button",{name:"Net",exact:true}).click();
+  await regionOcclusion.getByRole("button",{name:"Complètement visible",exact:true}).click();
   await page.getByRole("button", { name: /^Côté droit/ }).click();
   await page
     .getByRole("button", {
@@ -296,6 +310,7 @@ try {
     [500, 1250, 200, 300],
   );
   assert.ok(zip.file(out.images[0].file_name));
+  assert.equal(out.annotations.find(a=>a.category_id===2&&a.guacabook.side==="left").attributes.sharpness,"sharp");
   assert.deepEqual(errors, []);
   console.log(
     "PASS: traitement par étape du lot, vue photo 3D, deux yeux, resets étape/côté, zoom/dézoom et coordonnées originales, photo haute sur mobile, sauvegarde et COCO.",

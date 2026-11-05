@@ -79,7 +79,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
         if(box.category!=="periocular_region")continue;
         const review=reviews.get(box.id), reasons=regionReasons(data,photo,box,review);
         const row:Record<string,unknown>={annotation_id:box.id,coco_annotation_id:annotationOffset+j+1,image_id:photo.id,identity:box.birdId||null,side:box.side,
-          visibility:photo.regionBySide?.[box.side]??(photo.eyeLayout==="both"?null:photo.regionVisible??null),usability:box.usability||"unknown",occluded:box.occluded??null,review:review?.decision||"pending",reviewer_id:review?.reviewer_id||null,
+          visibility:photo.regionBySide?.[box.side]??(photo.eyeLayout==="both"?null:photo.regionVisible??null),usability:box.usability||"unknown",sharpness:box.sharpness??(box.usability==="usable"?"sharp":null),occluded:box.occluded??null,review:review?.decision||"pending",reviewer_id:review?.reviewer_id||null,
           reviewed_at:review?.reviewed_at||null,review_revision:review?.dataset_revision??null,exclusion_reasons:reasons.join(";"),bbox:box.bbox};
         if(review?.decision==="accepted" && review.source_sha256!==sha256) {
           reasons.push("source_changed_since_review");row.exclusion_reasons=reasons.join(";");
@@ -121,7 +121,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
   Object.assign(document.guacabook,{crops:cropLinks,annotation_protocol:"guacabook-v1",review_policy:"per-region, source revision checked by server"});
   zip.file("annotations.json",JSON.stringify(document,null,2));
   zip.file("metadata.csv",csv(["id","width","height","file_name","identity","identities","timestamp","date","session_id","batch_id","quality","annotation_status","metadata_origin","original_file","sha256"],imageRows));
-  zip.file("regions.csv",csv(["annotation_id","coco_annotation_id","image_id","identity","side","visibility","usability","occluded","review","reviewer_id","reviewed_at","review_revision","bbox","crop_file","exclusion_reasons"],regionRows));
+  zip.file("regions.csv",csv(["annotation_id","coco_annotation_id","image_id","identity","side","visibility","usability","sharpness","occluded","review","reviewer_id","reviewed_at","review_revision","bbox","crop_file","exclusion_reasons"],regionRows));
   zip.file("crops.csv",csv(["crop_file","image_id","coco_image_id","annotation_id","coco_annotation_id","identity","side","source_file","original_file","source_bbox","width","height","sha256"],cropRows));
   zip.file("individuals.csv",csv(["id","name","species","speciesInfo","sex","birthYear"],data.birds.map(b=>({...b}))));
   zip.file("wildme/metadata.csv",csv(["theta","viewpoint","name","file_name","species","file_path","x","y","w","h","annotation_id","source_image_id","session_id","timestamp","camera_azimuth","camera_elevation","split_closed","split_open"],wildme));

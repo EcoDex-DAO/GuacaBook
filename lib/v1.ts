@@ -10,7 +10,10 @@ export function regionReasons(data: Dataset, photo: Photo, box: Box, review?: Re
   if (box.category !== "periocular_region") reasons.push("not_periocular");
   if (!data.birds.some(b => b.id === box.birdId)) reasons.push("identity_missing");
   if (!["left", "right"].includes(box.side)) reasons.push("side_unknown");
-  if (box.usability !== "usable") reasons.push("region_not_usable");
+  if (box.usability !== "usable" || (box.sharpness !== undefined && box.sharpness !== "sharp")) reasons.push("region_not_usable");
+  if (photo.eyeVisible !== "yes") reasons.push("eye_not_visible");
+  const visibility=photo.regionBySide?.[box.side] ?? (photo.eyeLayout === "both" ? undefined : photo.regionVisible);
+  if (visibility !== "yes" && visibility !== "partial") reasons.push("region_visibility_unknown");
   if ((photo.regionBySide?.[box.side] ?? (photo.eyeLayout === "both" ? undefined : photo.regionVisible)) === "partial") reasons.push("region_partial");
   if (box.occluded !== false) reasons.push("occlusion_or_unknown");
   if (!validBox(photo, box)) reasons.push("invalid_bbox");
@@ -23,6 +26,7 @@ export const reasonLabels: Record<string,string> = {
   side_unknown:"Côté anatomique inconnu", region_not_usable:"Netteté de la région à vérifier",
   occlusion_or_unknown:"Région masquée ou visibilité inconnue", invalid_bbox:"Cadre hors image ou invalide",
   region_partial:"Région partiellement visible",
+  eye_not_visible:"Œil non confirmé visible", region_visibility_unknown:"Visibilité de la région non confirmée",
   source_changed_since_review:"Photo source modifiée depuis la revue",
   review_rejected:"Région rejetée par la revue", review_pending:"Revue scientifique en attente",
 };

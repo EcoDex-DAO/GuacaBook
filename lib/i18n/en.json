@@ -473,5 +473,13 @@
   "La région de ce côté n’est pas visible": "The region on this side is not visible",
   "Région partiellement visible": "Partially visible region",
   "Aide : comprendre le point de vue": "Help: understand the viewpoint",
-  "Aide : zoom et cadres": "Help: zoom and annotation boxes"
+  "Aide : zoom et cadres": "Help: zoom and annotation boxes",
+  "Net": "Sharp",
+  "Flou": "Blurry",
+  "Pixelisé": "Pixelated",
+  "Complètement visible": "Completely visible",
+  "Partiellement": "Partially",
+  "Cachée": "Hidden",
+  "Masquage de la région": "Region occlusion",
+  "Ancienne annotation : inexploitable, cause non précisée.": "Legacy annotation: unusable, cause unspecified."
 }

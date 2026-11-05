@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {resetAnnotationFrames,showPeriocularRegion,showAnnotationFrame} from "../lib/annotationActions";
+import {resetAnnotationFrames,showPeriocularRegion,showAnnotationFrame,regionSharpness,hidePeriocularRegion} from "../lib/annotationActions";
 import type {Photo,Box} from "../lib/dataset";
 const box=(id:string,side:Box["side"],category:Box["category"]="periocular_region",birdId="a"):Box=>({id,category,side,birdId,bbox:[1,2,10,20]});
 const photo:Photo={id:"photo",name:"",width:100,height:100,blob:new Blob(),capturedAt:"",sessionId:"",quality:"usable",birdId:"a",eyeLayout:"both",eyeVisible:"yes",regionBySide:{left:"yes",right:"no"},boxes:[box("left","left"),box("right","right"),box("eye","left","eye"),box("other","left","periocular_region","b")]};
@@ -38,4 +38,17 @@ test("eye drawing confirms visibility without inventing laterality; full reset c
  assert.equal(reset.eyeVisible,undefined);assert.equal(reset.eyeLayout,undefined);
  assert.equal(reset.regionBySide,undefined);assert.equal(reset.regionVisible,undefined);
  assert.deepEqual(reset.boxes!.map(b=>b.id),["other"]);
+});
+
+test("keeps blur and pixelation distinct and maps them conservatively to legacy usability",()=>{
+ assert.deepEqual(regionSharpness("sharp"),{sharpness:"sharp",usability:"usable"});
+ assert.deepEqual(regionSharpness("blurry"),{sharpness:"blurry",usability:"unusable"});
+ assert.deepEqual(regionSharpness("pixelated"),{sharpness:"pixelated",usability:"unusable"});
+ assert.deepEqual(regionSharpness("unknown"),{sharpness:"unknown",usability:"unknown"});
+});
+test("hiding a region removes only its own frames and preserves eyes, other side and other animals",()=>{
+ const result={...photo,...hidePeriocularRegion(photo,"left")};
+ assert.equal(result.regionBySide!.left,"no");assert.equal(result.regionBySide!.right,"no");
+ assert.deepEqual(result.boxes.map(b=>b.id),["right","eye","other"]);
+ assert.equal(result.eyeVisible,"yes");assert.equal(result.eyeLayout,"both");
 });
