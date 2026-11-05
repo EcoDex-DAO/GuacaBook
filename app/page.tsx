@@ -16,6 +16,7 @@ import {
   nextBatchTask,
   requiredSides,
   stepValid,
+  stepComplete,
   removeBird,
 } from "../lib/dataset";
 import AnimalForm from "./components/AnimalForm";
@@ -98,6 +99,7 @@ function Home() {
     : 0;
   function setStage(value: number) {
     if(pausing)return;
+    if(value===4 && step===5 && photo?.eyeVisible==="no" && stepComplete(photo,3))value=3;
     update((d) => ({
       ...d,
       batchStages: { ...d.batchStages, [batchKey]: value },
@@ -117,6 +119,15 @@ function Home() {
           : p.sessionId === photo.sessionId,
       )
     : [];
+  useEffect(() => {
+    if(screen!=="annotate" || step!==4 || !photo || photo.eyeVisible!=="no" || !stepComplete(photo,3))return;
+    // Also handles saved cursors from before automatic skipping was introduced.
+    const next=nextBatchTask(batch,photo.id,4);
+    update(d=>({...d,batchStages:{...d.batchStages,[batchKey]:next?.step??5},
+      annotationResume:d.annotationResume?.photoId===photo.id
+        ? {photoId:next?.id??photo.id,step:next?.step??5}:d.annotationResume}));
+    if(next)setActive(next.id);
+  },[screen,step,photo,batch,batchKey,update]);
   useEffect(() => {
     if (!ready) return;
     setConsentConfirmed(data.consent && data.researchConsent?.version === RESEARCH_CONSENT_VERSION);
@@ -146,7 +157,7 @@ function Home() {
         ...d,
         photos: d.photos.map(p => p.id === photo.id ? {
           ...p, completed: false, annotationVersion: 1 as const,
-          doneSteps: (p.doneSteps || (p.completed ? [0,1,2,3,4,5] : [])).filter(s => s !== step && s !== 5),
+          doneSteps: (p.doneSteps || (p.completed ? [0,1,2,3,4,5] : [])).filter(s => s !== step && s !== 5 && !(step===3 && s===4)),
           ...patch,
         } : p),
       };
@@ -756,8 +767,7 @@ function Home() {
                     {
                       batch.filter(
                         (p) =>
-                          (p.doneSteps?.includes(step) || p.completed) &&
-                          stepValid(p, step),
+                          stepComplete(p, step),
                       ).length
                     }
                     /{batch.length} {t("PHOTOS TRAITÉES")}{" "}

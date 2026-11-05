@@ -251,3 +251,10 @@ du contenu. Les explications du zoom et des cadres sont repliables. Les contrôl
 de netteté et d’occlusion sont regroupés dans le formulaire, pour le côté courant
 sur les vues à deux yeux. Sur les petits écrans, les panneaux restent empilés ;
 les contenus longs et les aides ouvertes peuvent défiler dans leur propre panneau.
+
+Après validation de « Aucun œil visible », l’étape périoculaire de cette photo
+est automatiquement considérée comme non applicable et n’est pas redemandée.
+Le lot poursuit cette étape sur les photos concernées, puis passe à la validation.
+Une réponse encore non validée ou « Je ne sais pas » ne déclenche pas ce saut.
+Reprendre un ancien curseur sur cette étape non applicable effectue le même saut ;
+revenir en arrière depuis la validation mène directement aux yeux pour ces photos.

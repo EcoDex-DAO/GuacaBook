@@ -179,3 +179,17 @@ test("traite la même étape sur tout le lot avant de passer à la suivante", as
     step: 0,
   });
 });
+
+test("skips periocular work only for a validated absence of eyes, including legacy cursors",async()=>{
+  const {nextBatchTask,stepComplete}=await import("../lib/dataset");
+  const noEye={...data.photos[0],id:"no-eye",eyeVisible:"no" as const,boxes:[],doneSteps:[3]};
+  const visible={...noEye,id:"visible",eyeVisible:"yes" as const,eyeLayout:"left" as const};
+  assert.equal(stepComplete(noEye,4),true);
+  assert.equal(stepComplete({...noEye,doneSteps:[]},4),false);
+  assert.equal(stepComplete({...noEye,eyeVisible:"unknown"},4),false);
+  assert.equal(stepComplete(visible,4),false);
+  assert.deepEqual(nextBatchTask([visible,noEye],"visible",4),{id:"visible",step:5});
+  assert.deepEqual(nextBatchTask([noEye],noEye.id,3),{id:noEye.id,step:5});
+  assert.deepEqual(nextBatchTask([noEye,visible],noEye.id,4),{id:visible.id,step:4});
+  assert.deepEqual(nextBatchTask([{...noEye,eyeVisible:"unknown"}],noEye.id,3),{id:noEye.id,step:4});
+});

@@ -237,15 +237,18 @@ try {
   await page.screenshot({ path: "/tmp/guacabook-mobile.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1100 });
   await next();
-  await stage(4);
-  await assertPhoto(1);
-  await next();
+  // The second photo has no visible eye: its periocular task is skipped.
   await stage(5);
   await assertPhoto(0);
   await page
     .getByRole("button", { name: "Valider cette photo →", exact: true })
     .click();
   await stage(5);
+  await assertPhoto(1);
+  await page.getByRole("button",{name:"Étape précédente",exact:true}).click();
+  await stage(3);
+  await page.getByRole("button",{name:"Étape suivante",exact:true}).click();
+  await expect(page.locator(".steps button").nth(5)).toHaveAttribute("aria-current","step");
   await assertPhoto(1);
   await page
     .getByRole("button", { name: "Valider cette photo →", exact: true })

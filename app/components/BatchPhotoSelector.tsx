@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
 import type {Photo} from "../../lib/dataset";
-import {stepValid} from "../../lib/dataset";
+import {stepComplete} from "../../lib/dataset";
 import {useI18n} from "./I18n";
 function Thumbnail({photo}:{photo:Photo}) {
   const [url,setUrl]=useState("");
@@ -10,7 +10,7 @@ function Thumbnail({photo}:{photo:Photo}) {
 }
 export default function BatchPhotoSelector({photos,active,step,disabled,onSelect}:{photos:Photo[];active:string;step:number;disabled:boolean;onSelect:(photo:Photo)=>void}) {
   const {t}=useI18n();const index=photos.findIndex(p=>p.id===active);
-  const done=(p:Photo)=>(p.completed||p.doneSteps?.includes(step))&&stepValid(p,step);
+  const done=(p:Photo)=>stepComplete(p,step);
   const rail=useRef<HTMLDivElement>(null);
   useEffect(()=>{
     const element=rail.current;if(!element)return;

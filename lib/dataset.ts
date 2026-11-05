@@ -203,13 +203,19 @@ export function requiredSides(p: Omit<Photo, "blob">): Box["side"][] {
     .map((b) => b.side);
   return sides.length ? [...new Set(sides)] : ["unknown"];
 }
+// A confirmed absence of eyes also completes the inapplicable periocular task.
+export function stepComplete(p: Photo, step: number): boolean {
+  const skipped = step === 4 && p.eyeVisible === "no" &&
+    (p.completed || !!p.doneSteps?.includes(3)) && stepValid(p, 3);
+  return !!(p.completed || p.doneSteps?.includes(step) || skipped) && stepValid(p, step);
+}
+
 export function nextBatchTask(
   batch: Photo[],
   currentId: string,
   step: number,
 ): { id: string; step: number } | null {
-  const done = (p: Photo, s: number) =>
-    (p.doneSteps?.includes(s) || p.completed) && stepValid(p, s);
+  const done = stepComplete;
   const candidate = batch.find((p) => p.id !== currentId && !done(p, step));
   if (candidate) return { id: candidate.id, step };
   for (let s = step + 1; s <= 5; s++) {
