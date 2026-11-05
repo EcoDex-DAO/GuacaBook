@@ -68,11 +68,10 @@ try {
   await page
     .getByRole("button", { name: "Actualiser les contributions", exact: true })
     .click();
-  const downloaded = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Exporter la contribution V1", exact: true })
     .click();
-  assert.match((await downloaded).suggestedFilename(), /^guacabook-/);
+  await page.getByRole("status").filter({hasText:"Aucune photo validée par un vérificateur à exporter."}).waitFor();
   // New device: remote data cannot be overwritten before loading it.
   const { page: other } = await open();
   await login(other, "a@example.com");

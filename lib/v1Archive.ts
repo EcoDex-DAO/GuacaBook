@@ -1,3 +1,4 @@
+import {approvedDataset, type PhotoReview} from "./photoReviews";
 import { APP_VERSION } from "./version";
 import JSZip from "jszip";
 import { coco, Dataset } from "./dataset";
@@ -43,14 +44,16 @@ Closed: same image, identical original hash, individual/session and individual/d
 Open: disjoint identity components, keeping co-occurring/duplicate-image identities together, approximately 70/15/15. Fewer than 3 components stay in train. Ordering is deterministic by stable IDs.
 Groups lacking both session and capture date are unsplit. Missing partitions and tiny cohorts are reported; no performance claim is made. Gallery/query protocol and rejection thresholds must still be configured and evaluated for macaws.
 Exact byte duplicates are detected. Re-encoded/near-duplicate photos and cross-account identity reconciliation still require human review. Left and right are NOT separate individual identities.
+Only independently accepted photos whose annotations, animal metadata and original image still match their review are included in every file, including COCO, CSV, original images and crops.
 No segmentation masks or AI identifications are generated. Annotated V0 data remains generic; missing V1 region checks or review prevents training eligibility.
 MiewID/WBIA code and model weights must be installed and licensed separately. This export is not a ready-to-import Wildbook database.
 `;
 function png(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error("PNG export failed")),"image/png"));
 }
-export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> = new Map()) {
+export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> = new Map(), photoReviews:Map<string,PhotoReview>=new Map()) {
   if(!data.consent)throw new Error("Autorisation requise avant export.");
+  data=await approvedDataset(data,photoReviews);
   const identifiers=[...data.photos.map(p=>p.id),...data.photos.flatMap(p=>p.boxes.map(b=>b.id))];
   if(identifiers.some(id=>typeof id!=="string" || !id || id.length>120) || new Set(identifiers).size!==identifiers.length || new Set(data.birds.map(b=>b.id)).size!==data.birds.length)throw new Error("Invalid or duplicate identifiers");
   const zip=new JSZip(), document=coco(data);
@@ -77,7 +80,10 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
       for(let j=0;j<photo.boxes.length;j++) {
         const box=photo.boxes[j];
         if(box.category!=="periocular_region")continue;
-        const review=reviews.get(box.id), reasons=regionReasons(data,photo,box,review);
+        const photoReview=photoReviews.get(photo.id)!;
+        const review:Review=reviews.get(box.id)??{annotation_id:box.id,decision:'accepted',reviewer_id:photoReview.reviewer_id,
+          reviewed_at:photoReview.reviewed_at,dataset_revision:photoReview.dataset_revision,source_sha256:photoReview.source_sha256};
+        const reasons=regionReasons(data,photo,box,review);
         const row:Record<string,unknown>={annotation_id:box.id,coco_annotation_id:annotationOffset+j+1,image_id:photo.id,identity:box.birdId||null,side:box.side,
           visibility:photo.regionBySide?.[box.side]??(photo.eyeLayout==="both"?null:photo.regionVisible??null),usability:box.usability||"unknown",sharpness:box.sharpness??(box.usability==="usable"?"sharp":null),occluded:box.occluded??null,review:review?.decision||"pending",reviewer_id:review?.reviewer_id||null,
           reviewed_at:review?.reviewed_at||null,review_revision:review?.dataset_revision??null,exclusion_reasons:reasons.join(";"),bbox:box.bbox};
@@ -118,7 +124,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
       timestamp:row.photo.capturedAt||null,camera_azimuth:row.photo.viewpoint?.azimuth??null,camera_elevation:row.photo.viewpoint?.elevation??null,
       split_closed:row.split_closed,split_open:row.split_open};
   });
-  Object.assign(document.guacabook,{crops:cropLinks,annotation_protocol:"guacabook-v1",review_policy:"per-region, source revision checked by server"});
+  Object.assign(document.guacabook,{crops:cropLinks,annotation_protocol:"guacabook-v1",review_policy:"independent photo snapshot and source approval; current region decisions override"});
   zip.file("annotations.json",JSON.stringify(document,null,2));
   zip.file("metadata.csv",csv(["id","width","height","file_name","identity","identities","timestamp","date","session_id","batch_id","quality","annotation_status","metadata_origin","original_file","sha256"],imageRows));
   zip.file("regions.csv",csv(["annotation_id","coco_annotation_id","image_id","identity","side","visibility","usability","sharpness","occluded","review","reviewer_id","reviewed_at","review_revision","bbox","crop_file","exclusion_reasons"],regionRows));
@@ -129,7 +135,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
   const counts=(key:"split_closed"|"split_open")=>Object.fromEntries(["train","valid","test","unsplit"].map(split=>[split,samples.filter(s=>s[key]===split).length]));
   const report={version:APP_VERSION,schema:3,images:data.photos.length,periocular_regions:regionRows.length,eligible_regions:samples.length,
     excluded_regions:regionRows.length-samples.length,split_closed:counts("split_closed"),split_open:counts("split_open"),
-    notes:["Generic data includes drafts/unknowns; only reviewed eligible regions enter Wild Me CSV.","Empty or small partitions are not a validated evaluation benchmark.","Near-duplicates and identity reconciliation require human review."]};
+    notes:["Only independently approved, unchanged photos are included; Wild Me also requires eligible reviewed regions.","Empty or small partitions are not a validated evaluation benchmark.","Near-duplicates and identity reconciliation require human review."]};
   zip.file("report.json",JSON.stringify(report,null,2));
   return {zip,report};
 }

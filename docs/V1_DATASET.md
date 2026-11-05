@@ -3,7 +3,7 @@
 ## Versions
 
 La V0 est figée au commit `ae6eb15`, tag `v0.0.0`, branche `release/v0`.
-La V1 continue sur `main`, version applicative `1.0.0-beta.1` (préversion ; le tag stable sera publié après validation), schéma d’export **3**.
+La V1 continue sur `main`, version applicative `1.1.0-beta.1` (préversion ; le tag stable sera publié après validation), schéma d’export **3**.
 Le numéro du schéma n’est pas le numéro de version de l’application.
 La V0 reste consultable sans réinstaller ni modifier la base existante.
 
@@ -17,9 +17,10 @@ Les décisions sont stockées dans `annotation_reviews`, séparément du JSON qu
 contributeur peut modifier. Les comptes autorisés à examiner les contributions
 peuvent accepter/rejeter une région via `review_annotation`. Les autres comptes
 peuvent lire leurs propres décisions mais ne peuvent ni les écrire ni s’approuver.
-La décision est liée à la **révision exacte de la collection** et au SHA-256 des octets sources examinés. Un remplacement du fichier invalide aussi la décision, même sans changement de révision. Toute nouvelle
-sauvegarde/inclusion de photos invalide les décisions précédentes pour l’export ;
-elles sont conservées comme historique et ne sont pas réappliquées automatiquement.
+La décision est liée à la **révision exacte de la collection** et au SHA-256 des octets sources examinés. Un remplacement du fichier invalide aussi la décision, même sans changement de révision. Une modification de la collection invalide cette revue de région. La validation
+par photo introduite en migration 005, elle, reste valide si la photo et sa fiche
+d’animal associée sont inchangées. Accepter la photo réécrit aussi les décisions
+de ses régions pour la révision courante.
 
 ## Parcours de collecte
 
@@ -42,9 +43,9 @@ pas une preuve biométrique de l’identité de l’animal.
 
 ## Deux usages dans une même archive
 
-L’export personnel V1 contient le compte courant (brouillons inclus et étiquetés).
-L’export global V1 rassemble les annotations terminées des collections soumises
-et autorisées. Les UUID de chaque collection sont préfixés par le compte pour
+L’export personnel V1 contient les photos du compte courant approuvées par un autre
+vérificateur. L’export global V1 rassemble les photos approuvées des collections
+autorisées, sans exiger une soumission globale de la collection. Les UUID de chaque collection sont préfixés par le compte pour
 éviter les collisions. Les révisions et pseudonymes d’attribution figurent dans
 `manifest.json`. Aucun e-mail d’authentification n’est exporté.
 
@@ -268,3 +269,12 @@ attributs COCO et dans `regions.csv`. Les anciens « inexploitable » ne sont pa
 requalifiés arbitrairement en flous. « Cachée » retire les cadres de la région du
 côté concerné et enregistre son absence, sans effacer les yeux ni l’autre côté.
 Le cadrage et le masquage restent séparés. Voir [les scénarios](ANNOTATION_SCENARIOS.md).
+
+## Validation indépendante des photos (V1.1)
+
+La galerie **Photos et validation** permet aux contributeurs de consulter leurs
+propres photos et aux vérificateurs de relire toutes les contributions. Une revue
+par photo précède désormais tous les exports : le COCO générique n’inclut plus
+les photos simplement terminées mais non approuvées. Les critères scientifiques
+supplémentaires de Wild Me restent appliqués aux régions des photos approuvées.
+Voir [activation et utilisation](PHOTO_VALIDATION.md), migration SQL 005.

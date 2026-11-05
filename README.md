@@ -3,7 +3,7 @@
 La version courante est affichée en bas de l’application et provient de `package.json` · [Gestion des versions](docs/VERSIONS.md).
 
 V0 archivée : tag `v0.0.0`, branche `release/v0`, commit `ae6eb15`.
-V1 : export générique et adaptateur de données MiewID. [Format, revue et activation de la migration 004](docs/V1_DATASET.md).
+V1 : export générique et adaptateur de données MiewID. [Format et revue](docs/V1_DATASET.md). [Galerie et activation de la validation des photos (migration 005)](docs/PHOTO_VALIDATION.md).
 
 [English documentation](README.en.md) · Interface : français, anglais, espagnol et portugais.
 
@@ -38,7 +38,7 @@ Les tests navigateur utilisent une API simulée ; voir le guide pour la compilat
    - Région périoculaire : si l’œil est visible, indiquer si la zone est visible, masquée/coupée ou inconnue. Si visible, encadrer l’œil et les motifs environnants, dans un cadrage comparable entre séances. Sinon, ne pas inventer de boîte. Renseigner également la netteté et l’occlusion de chaque région. Pour chaque côté déclaré à l’étape des yeux, une réponse et, si visible, son propre cadre sont requis. Une région peut être masquée d’un côté et visible de l’autre. Les photos sans œil visible sont signalées non applicables à cette étape.
    - Validation : les réponses et boîtes requises doivent être présentes. Chaque tâche est réalisée successivement sur les photos du lot, puis la tâche suivante commence sur la première photo concernée. Qualité 1 → qualité 2 → orientation 1 → orientation 2, etc. Les réponses ne sont pas copiées. La validation termine le lot et ramène à la collection. Les étapes déjà confirmées et toujours valides ne sont pas redemandées ; la navigation directe permet les corrections.
 
-Toutes les étapes peuvent être revisitées ; une modification rouvre la photo en brouillon. On peut quitter et reprendre depuis la collection. « Validée » signifie que le protocole est renseigné, pas que la photo est scientifiquement exploitable. Plusieurs boîtes d’une même catégorie peuvent être tracées, supprimées puis retracées. « Réinitialiser les cadres de l’étape » efface les boîtes de la catégorie courante pour l’animal ciblé, sans toucher aux autres catégories ni aux autres individus. Pour les yeux et régions, « Réinitialiser ce côté uniquement » conserve les cadres du côté opposé. La latéralité est celle de l’animal, indépendamment du côté de l’image et du point de vue déclaré. Aucun côté inconnu n’est deviné.
+Toutes les étapes peuvent être revisitées ; une modification rouvre la photo en brouillon. On peut quitter et reprendre depuis la collection. « Annotation terminée » signifie que le protocole est renseigné ; la validation indépendante se fait dans « Photos et validation ». Plusieurs boîtes d’une même catégorie peuvent être tracées, supprimées puis retracées. « Réinitialiser les cadres de l’étape » efface les boîtes de la catégorie courante pour l’animal ciblé, sans toucher aux autres catégories ni aux autres individus. Pour les yeux et régions, « Réinitialiser ce côté uniquement » conserve les cadres du côté opposé. La latéralité est celle de l’animal, indépendamment du côté de l’image et du point de vue déclaré. Aucun côté inconnu n’est deviné.
 
 Les nouveaux lots ciblent un animal. Pour une photo avec d’autres aras, le parcours annote uniquement l’animal choisi ; ne pas attribuer les autres corps à cette identité. Les annotations multiples des anciens brouillons sont conservées et leurs identités ne sont pas réaffectées. Le panneau d’anciens brouillons permet d’associer leur photo à un animal de lot.
 
@@ -56,15 +56,15 @@ Le navigateur garde en mémoire les données nécessaires à l’affichage et le
 
 La copie de secours n’est pas un export de recherche ni un import ZIP automatique. L’export COCO reste disponible séparément, avec consentement.
 
-L’export exige une autorisation explicite de disposer des droits et d’utiliser les photos sous **CC BY 4.0**, redistribution et usage commercial avec attribution inclus. Cette licence photo n’affirme aucune licence pour le code ou les datasets tiers. L’archive n’est pas transmise automatiquement. Elle comprend toutes les photos, y compris les brouillons signalés comme tels. Les fichiers originaux conservent leurs métadonnées potentiellement privées, dont GPS : les inspecter avant partage. L’application ne les extrait pas.
+L’export exige une autorisation explicite de disposer des droits et d’utiliser les photos sous **CC BY 4.0**, redistribution et usage commercial avec attribution inclus. Cette licence photo n’affirme aucune licence pour le code ou les datasets tiers. L’archive n’est pas transmise automatiquement. Elle comprend uniquement les photos terminées et approuvées par un autre vérificateur, dont la source et les annotations sont inchangées. Les fichiers originaux conservent leurs métadonnées potentiellement privées, dont GPS : les inspecter avant partage. L’application ne les extrait pas.
 
 ## Export V1 — COCO générique et CSV Wild Me
 
 L’archive contient des originaux inchangés, des images PNG orientées, les cadres COCO,
 les recadrages périoculaires par individu/côté et des CSV de métadonnées. Le CSV
 Wild Me cible MiewID et ne contient que les régions exploitables et acceptées par
-une revue de leur révision. Les données génériques conservent les inconnues et les
-brouillons lorsqu’ils font partie de l’export personnel. Les découpages fermés et
+une revue de leur révision. Le COCO générique et les CSV n’incluent que les photos
+approuvées ; ils peuvent conserver leurs inconnues et régions partielles déclarées. Les découpages fermés et
 ouverts regroupent dates, séances et doublons exacts avant attribution.
 
 [Contrat complet, champs, limites et instructions Python](docs/V1_DATASET.md).

@@ -2,13 +2,13 @@
 import { useEffect, useState } from "react";
 
 import JSZip from "jszip";
+import {approvedDataset,birdsSnapshot,photoSnapshot,loadReviewedDataset,type PhotoReview} from "../../lib/photoReviews";
 import { researchDataset } from "../../lib/researchExport";
 import { stepValid } from "../../lib/dataset";
 import { CloudRow, loadCloudDataset } from "../../lib/cloud";
 
 import { buildV1Archive } from "../../lib/v1Archive";
 import type { Review } from "../../lib/v1";
-import ContributionReview from "./ContributionReview";
 import type { CloudWorkspace } from "../../lib/useCloudWorkspace";
 import { useAccount } from "./AccountGate";
 import { useI18n } from "./I18n";
@@ -23,8 +23,7 @@ export function CloudActions({
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [admin, setAdmin] = useState(false),
-    [rows, setRows] = useState<CloudRow[]>([]),
-    [reviewing, setReviewing] = useState<CloudRow|null>(null);
+    [rows, setRows] = useState<CloudRow[]>([]);
   useEffect(() => {
     if (!client) return;
     let live = true;
@@ -49,6 +48,7 @@ export function CloudActions({
           "Des annotations différentes existent déjà pour le même animal ou la même photo. Exportez vos copies avant de les rapprocher.",
           "La copie locale a changé. Elle n’a pas été effacée.",
           "Revue indisponible. Exécutez la migration 004 et rechargez les contributions.",
+          "Galerie indisponible. Appliquez la migration 005 dans Supabase, puis actualisez.",
         ].includes(key)
           ? key
           : "Opération en ligne impossible. Vérifiez la connexion, la configuration et les quotas, puis réessayez.",
@@ -80,9 +80,11 @@ export function CloudActions({
   }
   async function adminExport(row: CloudRow) {
     if (!client) return;
-    const dataset = await loadCloudDataset(client, row);
     const reviews=await loadReviews(row);
-    const {zip}=await buildV1Archive(dataset,reviews);
+    const decisions=await loadPhotoReviews(row);
+    const dataset=await loadReviewedDataset(client,row,decisions);
+    const {zip,report}=await buildV1Archive(dataset,reviews,decisions);
+    if(!report.images){setMessage("Aucune photo validée par un vérificateur à exporter.");return;}
     zip.file("manifest.json",JSON.stringify({owner_id:row.owner_id,revision:row.revision,contributor:row.dataset.profile},null,2));
     await download(zip, `guacabook-v1-${row.owner_id}.zip`);
   }
@@ -91,6 +93,12 @@ export function CloudActions({
     const {data,error}=await client.from("annotation_reviews").select("*").eq("owner_id",row.owner_id).eq("dataset_revision",row.revision);
     if(error)throw new Error("Revue indisponible. Exécutez la migration 004 et rechargez les contributions.");
     return new Map<string,Review>((data||[]).map(r=>[r.annotation_id,r]));
+  }
+  async function loadPhotoReviews(row:CloudRow) {
+    if(!client)throw new Error("Authentication required");
+    const {data,error}=await client.from("photo_reviews").select("*").eq("owner_id",row.owner_id);
+    if(error)throw new Error("Galerie indisponible. Appliquez la migration 005 dans Supabase, puis actualisez.");
+    return new Map<string,PhotoReview>((data||[]).map(r=>[r.photo_id,r]));
   }
   async function allContributions() {
     if (!client) throw new Error("Unavailable");
@@ -108,21 +116,27 @@ export function CloudActions({
     if (!client) return;
     await w.flush();
     const contributions = await allContributions();
-    const selected = final ? contributions.filter(row => row.status === "submitted" && row.dataset.consent) : contributions;
+    const selected = final ? contributions.filter(row => row.dataset.consent) : contributions;
     let zip = new JSZip();
     if (final) {
       const collections = [];
       const reviews=new Map<string,Review>();
+      const photoReviews=new Map<string,PhotoReview>();
       for (const row of selected) {
         const validatedRow = { ...row, dataset: { ...row.dataset, photos: row.dataset.photos.filter(p => p.completed && stepValid(p, 5)) } };
         if (!validatedRow.dataset.photos.length) continue;
-        collections.push({ ownerId: row.owner_id, dataset: await loadCloudDataset(client, validatedRow) });
-        const decisions=await loadReviews(row);
-        for(const [id,review] of decisions)reviews.set(`${row.owner_id}__${id}`,{...review,annotation_id:`${row.owner_id}__${id}`});
+        const decisions=await loadPhotoReviews(row);
+        const approved=await approvedDataset(await loadReviewedDataset(client,validatedRow,decisions),decisions);
+        collections.push({ownerId:row.owner_id,dataset:approved});
+        for(const p of approved.photos){const review=decisions.get(p.id)!;photoReviews.set(`${row.owner_id}__${p.id}`,review);}
+        const regionDecisions=await loadReviews(row);
+        for(const [id,review] of regionDecisions)reviews.set(`${row.owner_id}__${id}`,{...review,annotation_id:`${row.owner_id}__${id}`});
       }
       const dataset = researchDataset(collections);
       if (!dataset.photos.length) { setMessage("Aucune photo validée et autorisée à exporter."); return; }
-      zip = (await buildV1Archive(dataset,reviews)).zip;
+      // IDs are namespaced only after the original snapshots and sources were verified.
+      for(const p of dataset.photos){const review=photoReviews.get(p.id)!;photoReviews.set(p.id,{...review,photo_id:p.id,photo_snapshot:photoSnapshot(p),birds_snapshot:birdsSnapshot(dataset,p)});}
+      zip = (await buildV1Archive(dataset,reviews,photoReviews)).zip;
     } else {
       let count = 0;
       for (const row of selected) {
@@ -185,10 +199,9 @@ export function CloudActions({
             {t("Actualiser les contributions")}
           </button>
           <div className="cloudactions">
-            <button disabled={busy} onClick={() => run(() => exportAll(false))}>{t("Exporter tous les originaux pour vérification")}</button>
             <button disabled={busy} onClick={() => run(() => exportAll(true))}>{t("Exporter V1 (COCO + Wild Me)")}</button>
           </div>
-          <p className="small">{t("V1 : COCO générique des annotations terminées et CSV Wild Me limité aux régions nettes, dégagées et acceptées par la revue.")}</p>
+          <p className="small">{t("Seules les photos validées par un vérificateur sont incluses dans le dataset.")}</p>
           <ul className="photolist">
             {rows.map((row) => (
               <li key={row.owner_id}>
@@ -197,9 +210,8 @@ export function CloudActions({
                   {row.dataset.photos.length} {t("photos")} ·{" "}
                   {t(row.status === "submitted" ? "Soumise" : "Brouillon")}
                 </span>
-                <button disabled={busy} onClick={()=>setReviewing(row)}>{t("Examiner les régions")}</button>
                 <button
-                  disabled={busy || row.status !== "submitted"}
+                  disabled={busy}
                   onClick={() => run(() => adminExport(row))}
                 >
                   {t("Exporter la contribution V1")}
@@ -209,7 +221,6 @@ export function CloudActions({
           </ul>
         </details>
       )}
-      {reviewing && <ContributionReview key={`${reviewing.owner_id}:${reviewing.revision}`} row={reviewing}/>}
       {busy && <p role="status">{t("Transfert en cours…")}</p>}
       {message && <p role="status">{t(message)}</p>}
       {error && <p role="alert">{t(error)}</p>}

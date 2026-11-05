@@ -5,6 +5,7 @@ export const rows = new Map(),
 export const counters = { uploads: 0 };
 export const faults = { writes: 0, delay: 0, deletes: 0 };
 export const annotationReviews = new Map();
+export const photoReviews = new Map();
 export const managedUsers = new Map();
 export const accountTypes = new Map();
 const passwords = new Map();
@@ -77,7 +78,7 @@ export async function signIn(
 }
 export function resetMock() {
   initializeAccounts();
-  annotationReviews.clear();
+  annotationReviews.clear();photoReviews.clear();
   rows.clear();
   objects.clear();
   counters.uploads = 0;
@@ -262,7 +263,7 @@ export async function setup(page) {
       });
     }
     if (url.pathname.endsWith("/logout")) return json({});
-    if (url.pathname.endsWith("/rpc/is_research_admin")) return json(id === A);
+    if (url.pathname.endsWith("/rpc/is_research_admin")) return json(!!accountTypes.get(managedUsers.get(id)?.type_id)?.can_review_data);
     if (url.pathname.endsWith("/rpc/submit_dataset")) {
       const input = req.postDataJSON(),
         row = rows.get(id);
@@ -276,6 +277,21 @@ export async function setup(page) {
       row.status = "submitted";
       row.consented_at = new Date().toISOString();
       return json(row.revision);
+    }
+    if(url.pathname.includes('/rest/v1/photo_reviews')){
+      const owner=url.searchParams.get('owner_id')?.replace('eq.','');
+      const canReview=accountTypes.get(managedUsers.get(id)?.type_id)?.can_review_data;
+      return json([...photoReviews.values()].filter(r=>(canReview||r.owner_id===id)&&(!owner||r.owner_id===owner)));
+    }
+    if(url.pathname.endsWith('/rpc/review_photo')){
+      const input=req.postDataJSON(),row=rows.get(input.target_owner),photo=row?.dataset.photos.find(p=>p.id===input.target_photo);
+      if(!managedUsers.get(id)?.active||!accountTypes.get(managedUsers.get(id)?.type_id)?.can_review_data||id===input.target_owner)return json({message:'Independent reviewer required'},403);
+      if(!photo||row.revision!==input.expected_revision||input.new_decision==='accepted'&&!photo.completed)return json({message:'Stale or incomplete'},409);
+      const snapshot=structuredClone(photo);for(const k of ['name','objectPath','mimeType'])delete snapshot[k];
+      const birds=row.dataset.birds.filter(b=>b.id===photo.birdId||photo.boxes.some(box=>box.birdId===b.id)).sort((a,b)=>a.id.localeCompare(b.id));
+      photoReviews.set(`${row.owner_id}:${photo.id}`,{owner_id:row.owner_id,photo_id:photo.id,dataset_revision:row.revision,photo_snapshot:snapshot,birds_snapshot:structuredClone(birds),source_sha256:input.expected_sha256,decision:input.new_decision,reviewer_id:id,reviewed_at:new Date().toISOString()});
+      for(const box of photo.boxes.filter(b=>b.category==='periocular_region'))annotationReviews.set(`${row.owner_id}:${row.revision}:${box.id}`,{owner_id:row.owner_id,dataset_revision:row.revision,annotation_id:box.id,source_sha256:input.expected_sha256,decision:input.new_decision,reviewer_id:id,reviewed_at:new Date().toISOString()});
+      return json(null);
     }
     if (url.pathname.includes("/rest/v1/annotation_reviews")) {
       const owner=url.searchParams.get("owner_id")?.replace("eq.",""), revision=Number(url.searchParams.get("dataset_revision")?.replace("eq.",""));
@@ -294,10 +310,10 @@ export async function setup(page) {
       if (req.method() === "GET")
         return json(
           url.searchParams.has("owner_id")
-            ? rows.has(owner)
+            ? rows.has(owner)&&(owner===id||accountTypes.get(managedUsers.get(id)?.type_id)?.can_review_data)
               ? [rows.get(owner)]
               : []
-            : [...rows.values()],
+            : [...rows.values()].filter(r=>r.owner_id===id||accountTypes.get(managedUsers.get(id)?.type_id)?.can_review_data),
         );
       const input = req.postDataJSON();
       if (faults.writes > 0) {
@@ -421,4 +437,14 @@ export async function setup(page) {
     });
   });
   return png;
+}
+
+export async function approveAllForTest(ownerId,reviewerId=B){
+ const row=rows.get(ownerId);
+ for(const photo of row.dataset.photos){
+  const snapshot=structuredClone(photo);for(const key of ['name','objectPath','mimeType'])delete snapshot[key];
+  const birds=row.dataset.birds.filter(b=>b.id===photo.birdId||photo.boxes.some(box=>box.birdId===b.id)).sort((a,b)=>a.id.localeCompare(b.id));
+  const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',objects.get(photo.objectPath)))).map(b=>b.toString(16).padStart(2,'0')).join('');
+  photoReviews.set(`${ownerId}:${photo.id}`,{owner_id:ownerId,photo_id:photo.id,dataset_revision:row.revision,photo_snapshot:snapshot,birds_snapshot:structuredClone(birds),source_sha256:hash,decision:'accepted',reviewer_id:reviewerId,reviewed_at:new Date().toISOString()});
+ }
 }

@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import {
   setup,
@@ -70,6 +70,9 @@ try {
     .getByLabel("Lien à transmettre en privé")
     .inputValue();
   assert.match(link, /\/auth\/invite#/);
+  await expect(page.getByRole("checkbox",{name:"Contributeur de photos",exact:true})).toBeChecked();
+  await page.getByRole("checkbox",{name:"Vérificateur",exact:true}).check();
+  await expect(page.getByRole("checkbox",{name:"Contributeur de photos",exact:true})).not.toBeChecked();
   await page
     .getByLabel("Adresse e-mail", { exact: true })
     .fill("by-mail@example.com");
@@ -83,6 +86,8 @@ try {
     .getByRole("status")
     .filter({ hasText: "Invitation envoyée par e-mail." })
     .waitFor();
+  assert.equal([...managedUsers.values()].find(u=>u.email==='by-mail@example.com').type_id,'reviewer');
+  await expect(page.getByRole("checkbox",{name:"Contributeur de photos",exact:true})).toBeChecked();
   // A new browser accepts the invite, chooses a password, then reconnects using it.
   const invited = await open();
   await invited.goto(link);

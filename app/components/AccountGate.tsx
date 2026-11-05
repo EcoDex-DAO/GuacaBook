@@ -16,8 +16,9 @@ import AccountManager from "./AccountManager";
 const AccountContext = createContext<{
   user: User | null;
   client: SupabaseClient | null;
+  account: AccountProfile | null;
   registerBeforeSignOut: (fn: () => Promise<void>) => () => void;
-}>({ user: null, client: null, registerBeforeSignOut: () => () => {} });
+}>({ user: null, client: null, account:null, registerBeforeSignOut: () => () => {} });
 export const useAccount = () => useContext(AccountContext);
 export default function AccountGate({
   children,
@@ -383,7 +384,7 @@ export default function AccountGate({
       </>
     );
   return (
-    <AccountContext.Provider value={{ user, client, registerBeforeSignOut }}>
+    <AccountContext.Provider value={{ user, client, account, registerBeforeSignOut }}>
       <div className="accountbar">
         <span>
           {t("Compte connecté")} · {user.email}

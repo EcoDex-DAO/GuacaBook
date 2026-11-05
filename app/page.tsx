@@ -6,8 +6,10 @@ import { inheritBatchMetadata, rememberBatchMetadata } from "../lib/batchMetadat
 import {resetAnnotationFrames,showAnnotationFrame,hidePeriocularRegion} from "../lib/annotationActions";
 import BatchPhotoSelector from "./components/BatchPhotoSelector";
 import RegionChecks from "./components/RegionChecks";
+import PhotoGallery from "./components/PhotoGallery";
+import {loadReviewedDataset} from "../lib/photoReviews";
 import { buildV1Archive } from "../lib/v1Archive";
-import { readCloudRow, loadCloudDataset } from "../lib/cloud";
+import { readCloudRow } from "../lib/cloud";
 import exifr from "exifr";
 import {
   Box,
@@ -241,11 +243,15 @@ function Home() {
       if(!client || !user)throw new Error("Authentication required");
       const row=await readCloudRow(client,user.id);
       if(!row)throw new Error("Collection missing");
-      const snapshot=await loadCloudDataset(client,row);
       const {data:reviews,error}=await client.from("annotation_reviews").select("*").eq("owner_id",user.id).eq("dataset_revision",row.revision);
-      const {zip}=await buildV1Archive(snapshot,new Map((reviews||[]).map(r=>[r.annotation_id,r])));
+      if(error)throw new Error("Revue indisponible. Exécutez la migration 004 et rechargez les contributions.");
+      const photoDecisions=await client.from("photo_reviews").select("*").eq("owner_id",user.id);
+      if(photoDecisions.error)throw new Error("Galerie indisponible. Appliquez la migration 005 dans Supabase, puis actualisez.");
+      const decisions=new Map((photoDecisions.data||[]).map(r=>[r.photo_id,r]));
+      const snapshot=await loadReviewedDataset(client,row,decisions);
+      const {zip,report}=await buildV1Archive(snapshot,new Map((reviews||[]).map(r=>[r.annotation_id,r])),decisions);
+      if(!report.images){setMessage("Aucune photo validée par un vérificateur à exporter.");return;}
       zip.file("manifest.json",JSON.stringify({owner_id:user.id,revision:row.revision,contributor:snapshot.profile},null,2));
-      if(error)zip.file("review-unavailable.txt","Apply Supabase migration 004 to enable verified Wild Me samples. Generic dataset only.");
       const blob = await zip.generateAsync({ type: "blob" });
       const u = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -435,20 +441,21 @@ function Home() {
       <nav className="tabs" aria-label={t("Sections")}>
         {[
           ["dataset", t("Dataset")],
+          ["photos",t("Photos et validation")],
           ["identification", t("Identification")],
           ["twin", t("Jumeau numérique")],
         ].map(([id, label]) => (
           <button
             key={id}
             aria-current={tab === id ? "page" : undefined}
-            onClick={() => setTab(id)}
+            onClick={async () => {try{await workspace.flush();setTab(id);}catch{setMessage("Sauvegardez vos modifications avant de changer d’espace.");}}}
           >
             {label}
-            {id !== "dataset" && <small>{t("À venir")}</small>}
+            {id !== "dataset" && id !== "photos" && <small>{t("À venir")}</small>}
           </button>
         ))}
       </nav>
-      {tab !== "dataset" ? (
+      {tab === "photos" ? <PhotoGallery onEdit={p=>{openPhoto(p);setTab("dataset");}}/> : tab !== "dataset" ? (
         <section className="placeholder">
           <span className="eyebrow">{t("PROCHAINEMENT")}</span>
           <h1>
@@ -613,7 +620,7 @@ function Home() {
                 <h2>
                   {" "}
                   {t("Collection ·")} {photos.filter((p) => p.completed).length}
-                  /{photos.length} {t("photos validées")}{" "}
+                  /{photos.length} {t("photos annotées")}{" "}
                 </h2>
                 <div className="coverage">
                   {(["left", "right"] as const).map((side) => (
@@ -660,7 +667,7 @@ function Home() {
                           <p className="small">
                             {p.sessionId || t("Séance non renseignée")} ·{" "}
                             {p.completed
-                              ? t("Validée")
+                              ? t("Annotation terminée")
                               : t("Brouillon · {step}", {
                                   step: steps[
                                     data.batchStages?.[
@@ -983,7 +990,7 @@ function Home() {
                     <button disabled={pausing || step===0} onClick={()=>setStage(step-1)}>{t("Étape précédente")}</button>
                     <button disabled={pausing || step===5} onClick={()=>setStage(step+1)}>{t("Étape suivante")}</button>
                     <button className="primary" disabled={pausing || !stepValid(photo,step)} onClick={advance}>
-                      {t(step===5?"Valider cette photo →":"Valider et continuer →")}
+                      {t(step===5?"Terminer l’annotation →":"Valider et continuer →")}
                     </button>
                   </div>
                   <p className="small">{t("Valider passe à la prochaine photo à traiter dans cette étape, puis à l’étape suivante en fin de lot.")}</p>
@@ -1037,6 +1044,7 @@ function Home() {
           <footer>
             <details className="personal-export">
               <summary>{t("Exporter mes données")}</summary>
+              <p className="small">{t("Seules les photos validées par un vérificateur sont incluses dans le dataset.")}</p>
               <button
                 className="primary"
                 disabled={!data.consent || !data.photos.length || busy}

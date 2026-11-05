@@ -67,8 +67,9 @@ export default function AccountManager() {
     const defaults: Record<string, string> = {
       admin: "Administrateur",
       contributor: "Contributeur",
-      reviewer: "Réviseur",
+      reviewer: "Vérificateur",
     };
+    if(type.id==='reviewer'&&type.builtin)return t("Vérificateur");
     return type.builtin && type.label === defaults[type.id]
       ? t(type.label)
       : type.label;
@@ -139,7 +140,7 @@ export default function AccountManager() {
     }
     setLink(data.link || "");
     if (data.sent) setMessage("Invitation envoyée par e-mail.");
-    setEmail("");
+    setEmail("");setInviteType("contributor");
     await refresh();
   }
   function resetType() {
@@ -195,19 +196,12 @@ export default function AccountManager() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </label>
-              <label>
-                {t("Type du compte invité")}
-                <select
-                  value={inviteType}
-                  onChange={(e) => setInviteType(e.target.value)}
-                >
-                  {types.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {typeName(type)}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <fieldset className="invitation-roles"><legend>{t("Type du compte invité")}</legend>
+                {types.filter(type=>type.id==='contributor'||type.id==='reviewer').map(type=><label key={type.id}>
+                  <input type="checkbox" name="invite-role" checked={inviteType===type.id} onChange={e=>setInviteType(e.target.checked?type.id:"contributor")}/>
+                  {t(type.id==='reviewer'?'Vérificateur':'Contributeur de photos')}
+                </label>)}
+              </fieldset>
               <button className="primary" disabled={busy || !types.length}>
                 {t("Envoyer l’invitation par e-mail")}
               </button>

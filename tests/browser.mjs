@@ -1,7 +1,7 @@
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
-import { setup, signIn, rows, A } from "./supabase-mock.mjs";
+import { setup, signIn, rows, A, approveAllForTest } from "./supabase-mock.mjs";
 import { readFile } from "node:fs/promises";
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
@@ -255,7 +255,7 @@ try {
   await stage(5);
   await assertPhoto(0);
   await page
-    .getByRole("button", { name: "Valider cette photo →", exact: true })
+    .getByRole("button", { name: "Terminer l’annotation →", exact: true })
     .click();
   await stage(5);
   await assertPhoto(1);
@@ -265,11 +265,11 @@ try {
   await expect(page.locator(".steps button").nth(5)).toHaveAttribute("aria-current","step");
   await assertPhoto(1);
   await page
-    .getByRole("button", { name: "Valider cette photo →", exact: true })
+    .getByRole("button", { name: "Terminer l’annotation →", exact: true })
     .click();
   await page
     .getByRole("heading", {
-      name: "Collection · 2/2 photos validées",
+      name: "Collection · 2/2 photos annotées",
       exact: true,
     })
     .waitFor();
@@ -284,10 +284,11 @@ try {
     .click();
   await page
     .getByRole("heading", {
-      name: "Collection · 2/2 photos validées",
+      name: "Collection · 2/2 photos annotées",
       exact: true,
     })
     .waitFor();
+  await approveAllForTest(A);
   const dp = page.waitForEvent("download");
   await page.getByText("Exporter mes données", { exact: true }).click();
   await page.getByRole("button", { name: "Exporter le dataset" }).click();
@@ -310,6 +311,7 @@ try {
     [500, 1250, 200, 300],
   );
   assert.ok(zip.file(out.images[0].file_name));
+  assert.equal(JSON.parse(await zip.file("report.json").async("string")).eligible_regions,1);
   assert.equal(out.annotations.find(a=>a.category_id===2&&a.guacabook.side==="left").attributes.sharpness,"sharp");
   assert.deepEqual(errors, []);
   console.log(
