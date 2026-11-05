@@ -278,3 +278,12 @@ par photo précède désormais tous les exports : le COCO générique n’inclut
 les photos simplement terminées mais non approuvées. Les critères scientifiques
 supplémentaires de Wild Me restent appliqués aux régions des photos approuvées.
 Voir [activation et utilisation](PHOTO_VALIDATION.md), migration SQL 005.
+
+L’étape périoculaire regroupe les choix de visibilité dans une rangée compacte
+sur ordinateur (deux colonnes sur mobile). Les explications et rappels anatomiques
+sont repliables. En vue à deux yeux, seuls les contrôles et annotations du côté
+sélectionné sont affichés, sans supprimer ni modifier les données de l’autre côté.
+Les indices des cadres restent stables. Netteté, masquage et commandes de validation
+restent visibles sur les formats de bureau testés, notamment 1280 × 720 et
+1366 × 768. Les contenus exceptionnels ou l’aide ouverte gardent un défilement de
+secours plutôt que de masquer les contrôles.

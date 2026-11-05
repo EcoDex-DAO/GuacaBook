@@ -28,7 +28,7 @@ export default function EyeGuide({
     ["no", "Non, aucun œil visible", "front"],
   ] as const;
   return (
-    <div className="eye-guide">
+    <div className={`eye-guide ${step===4?"periocular-guide":""}`}>
       {step === 3 && (
         <>
           <p>
@@ -60,19 +60,19 @@ export default function EyeGuide({
         </>
       )}
       {step === 4 && (
-        <p>
+        <details className="periocular-help"><summary>{t("Aide pour la région périoculaire")}</summary><p>
           {photo.eyeVisible === "yes"
             ? t(
                 "Reprenez chaque côté visible pour encadrer l’œil et les motifs autour.",
               )
             : t("Étape non applicable : aucun œil confirmé visible.")}
-        </p>
+        </p><p>{t("Sur une vue de face non retournée, la gauche de l’animal est à droite de l’image. Si le côté est incertain, choisissez « Je ne sais pas » à l’étape des yeux.")}</p></details>
       )}
       {photo.eyeVisible === "yes" &&
         (photo.eyeLayout || photo.boxes.some((b) => b.category === "eye")) && (
           <>
             {photo.eyeLayout==="both"&&<div
-              className="visual-options target-sides"
+              className={`visual-options target-sides ${step===4?"periocular-sides":""}`}
               aria-label={t("Zone à tracer")}
             >
               {requiredSides(photo).map((s) => {
@@ -116,8 +116,9 @@ export default function EyeGuide({
                   </button>
                 );
               })}
+              {step===4&&<button type="button" aria-label={t("Réinitialiser ce côté uniquement")} title={t("Réinitialiser ce côté uniquement")} onClick={()=>onChange(resetAnnotationFrames(photo,category,side))}>↺</button>}
             </div>}
-            <p className="drawhint">
+            {step!==4&&<p className="drawhint">
               {t("Tracez {region} : {side}.", {
                 region: t(step === 3 ? "Œil" : "Région périoculaire"),
                 side: t(
@@ -133,18 +134,19 @@ export default function EyeGuide({
                     "Puis sélectionnez l’autre côté : chaque côté a son propre cadre.",
                   )
                 : ""}
-            </p>
+            </p>}
             {step === 4 && (
-              <div className="choices">
+              <div className="periocular-visibility-group"><p className="periocular-side-label">{t("Visibilité")} · {t(side==="left"?"Côté gauche":side==="right"?"Côté droit":"Côté inconnu")}</p>
+              <div className="choices periocular-visibility" role="group" aria-label={t("Visibilité de la région périoculaire")}>
                 {[
-                  ["yes", t("La région de ce côté est visible")],
-                  ["partial", t("La région de ce côté est masquée / coupée")],
-                  ["no", t("La région de ce côté n’est pas visible")],
-                  ["unknown", t("Je ne sais pas pour ce côté")],
-                ].map(([v, l]) => (
+                  ["yes", t("La région de ce côté est visible"),t("Visible")],
+                  ["partial", t("La région de ce côté est masquée / coupée"),t("Partiellement visible")],
+                  ["no", t("La région de ce côté n’est pas visible"),t("Non visible")],
+                  ["unknown", t("Je ne sais pas pour ce côté"),t("Je ne sais pas")],
+                ].map(([v, l,compact]) => (
                   <button
                     key={v}
-                    aria-pressed={visible === v}
+                    aria-pressed={visible === v} aria-label={l} title={l}
                     onClick={() =>
                       onChange({
                         regionBySide: {
@@ -175,15 +177,15 @@ export default function EyeGuide({
                       }
                       highlight={side}
                     />
-                    <span>{l}</span>
+                    <span>{compact}</span>
                   </button>
                 ))}
-              </div>
+              </div></div>
             )}
-            {photo.eyeLayout==="both"&&<button onClick={()=>onChange(resetAnnotationFrames(photo,category,side))}>
+            {photo.eyeLayout==="both"&&step!==4&&<button onClick={()=>onChange(resetAnnotationFrames(photo,category,side))}>
               {t("Réinitialiser ce côté uniquement")}
             </button>}
-            {photo.eyeLayout==="both"&&<p className="small">
+            {photo.eyeLayout==="both"&&step!==4&&<p className="small">
               {" "}
               {t(
                 "Sur une vue de face non retournée, la gauche de l’animal est à droite de l’image. Si le côté est incertain, choisissez « Je ne sais pas » à l’étape des yeux.",

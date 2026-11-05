@@ -536,5 +536,7 @@
   "Visibilité": "Visibilidad",
   "Aucun cadre pour cette photo.": "No hay recuadros para esta foto.",
   "Détails techniques des cadres": "Detalles técnicos de los recuadros",
-  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "Las dimensiones de la foto no coinciden con las anotaciones. Revise los recuadros antes de validar."
+  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "Las dimensiones de la foto no coinciden con las anotaciones. Revise los recuadros antes de validar.",
+  "Aide pour la région périoculaire": "Ayuda sobre la región periocular",
+  "Visibilité de la région périoculaire": "Visibilidad de la región periocular"
 }

@@ -536,5 +536,7 @@
   "Visibilité": "Visibility",
   "Aucun cadre pour cette photo.": "No annotation boxes for this photo.",
   "Détails techniques des cadres": "Box technical details",
-  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "Photo dimensions do not match the annotations. Recheck the boxes before approval."
+  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "Photo dimensions do not match the annotations. Recheck the boxes before approval.",
+  "Aide pour la région périoculaire": "Periocular region help",
+  "Visibilité de la région périoculaire": "Periocular region visibility"
 }

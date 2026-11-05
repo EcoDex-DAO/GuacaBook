@@ -536,5 +536,7 @@
   "Visibilité": "Visibilidade",
   "Aucun cadre pour cette photo.": "Não há caixas para esta foto.",
   "Détails techniques des cadres": "Detalhes técnicos das caixas",
-  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "As dimensões da foto não correspondem às anotações. Reveja as caixas antes de validar."
+  "Les dimensions de la photo ne correspondent pas aux annotations. Revérifiez les cadres avant validation.": "As dimensões da foto não correspondem às anotações. Reveja as caixas antes de validar.",
+  "Aide pour la région périoculaire": "Ajuda sobre a região periocular",
+  "Visibilité de la région périoculaire": "Visibilidade da região periocular"
 }

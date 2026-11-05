@@ -356,6 +356,7 @@ function Home() {
   }
   const boxList =
     photo?.boxes.filter((b) => !category || b.category === category) || [];
+  const annotationRows=boxList.map((b,i)=>({b,i})).filter(({b})=>step!==4||(b.side===side&&b.birdId===(photo?.birdId||"")));
   if (!ready)
     return (
       <main>
@@ -765,7 +766,7 @@ function Home() {
                   />
 
                 </section>
-                <section className="question">
+                <section className={`question ${step===4?"periocular-question":""}`}>
                   <fieldset disabled={pausing} className="annotation-form-fields">
                   <div className="annotation-question-body">
                   <span className="eyebrow">
@@ -921,9 +922,9 @@ function Home() {
                       onChange={answer}
                     />
                   )}
-                  {category && boxList.length > 0 && (
+                  {category && annotationRows.length > 0 && (
                     <ul className="annotations">
-                      {boxList.map((b, i) => (
+                      {annotationRows.map(({b,i}) => (
                         <li key={b.id}>
                           <span>
                             {i + 1}.{" "}
