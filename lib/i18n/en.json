@@ -449,5 +449,9 @@
   "Version de l’application": "Application version",
   "Bêta": "Beta",
   "Stable": "Stable",
-  "Photo source modifiée depuis la revue": "Source photo changed since review"
+  "Photo source modifiée depuis la revue": "Source photo changed since review",
+  "Date ou séance reprise de la photo précédente du lot. Vérifiez ces informations pour cette photo.": "Date or session carried over from the previous photo in this batch. Check these details for this photo.",
+  "Au-dessus de l’ara": "Above the macaw",
+  "En dessous de l’ara": "Below the macaw",
+  "Choisissez d’abord une orientation pour préciser la hauteur.": "Choose an orientation first to specify the camera height."
 }

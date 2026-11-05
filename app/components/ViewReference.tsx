@@ -1,4 +1,5 @@
 "use client";
+import HeightGlyph from "./HeightGlyph";
 import { useI18n } from "./I18n";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
@@ -150,28 +151,23 @@ export default function ViewReference({
           </button>
         ))}
       </div>
-      <label>
-        {" "}
-        {t("Hauteur de prise de vue")}{" "}
-        <select
-          value={value?.elevation ?? 0}
-          disabled={!value}
-          onChange={(e) =>
-            value && onChange({ ...value, elevation: Number(e.target.value) })
-          }
-        >
-          <option value={0}>{t("À hauteur de l’ara")}</option>
-          <option value={30}>{t("Vue de dessus (+30°)")}</option>
-          <option value={-30}>{t("Vue de dessous (−30°)")}</option>
-        </select>
-      </label>
-      <button
-        type="button"
-        aria-pressed={value === null}
-        onClick={() => onChange(null)}
-      >
-        {" "}
-        {t("Point de vue inconnu")}{" "}
+      <fieldset className="height-picker">
+        <legend>{t("Hauteur de prise de vue")}</legend>
+        <div className="height-options">
+          {([
+            [30, "Au-dessus de l’ara"],
+            [0, "À hauteur de l’ara"],
+            [-30, "En dessous de l’ara"],
+          ] as const).map(([elevation,label])=><button type="button" key={elevation}
+            disabled={!value} aria-pressed={value?.elevation===elevation}
+            onClick={()=>value&&onChange({...value,elevation})}>
+            <HeightGlyph elevation={elevation}/><span>{t(label)}</span>
+          </button>)}
+        </div>
+        {!value&&<p className="small">{t("Choisissez d’abord une orientation pour préciser la hauteur.")}</p>}
+      </fieldset>
+      <button className="unknown-viewpoint" type="button" aria-pressed={value===null} onClick={()=>onChange(null)}>
+        <HeightGlyph elevation={null}/><span>{t("Point de vue inconnu")}</span>
       </button>
     </div>
   );

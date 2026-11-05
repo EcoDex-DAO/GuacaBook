@@ -169,3 +169,22 @@ ZIP, décodage et PNG sont construits en série dans le navigateur, avec libéra
 des bitmaps. Les petites collectes peuvent être testées ainsi ; un traitement serveur
 ou par lots sera nécessaire pour des volumes importants. Le moteur d’identification,
 la segmentation et la mesure de fiabilité sur aras restent des étapes distinctes.
+
+## Réutilisation de la date et de la séance pendant la saisie
+
+À l’étape Qualité, les valeurs date-heure/séance servent de valeurs de reprise pour
+les photos suivantes du même `batchId`. Elles sont stockées dans le JSON du compte
+(`batchMetadataDefaults`) et restaurées après rechargement. Seuls les champs vides
+et non explicitement effacés de photos dont l’annotation n’est pas terminée sont complétés. Les
+valeurs EXIF, valeurs déjà renseignées et choix Nette/Floue ne sont pas remplacés.
+Les lots sont isolés ; les anciens enregistrements sans batchId ne sont pas regroupés
+artificiellement. Les valeurs reprises sont signalées dans l’interface et tracées
+par `metadataOrigin` (`exif`, `manual`, `batch`) dans la photo, le COCO et le CSV générique.
+L’utilisateur doit les vérifier, notamment pour ne pas attribuer une heure commune
+à tort. La suppression des dernières photos d’un lot supprime aussi ses valeurs de reprise.
+Aucune migration SQL supplémentaire n’est nécessaire.
+
+La hauteur de prise de vue se choisit avec trois boutons illustrant la position
+de l’appareil (au-dessus, à hauteur, en dessous), après le choix d’une orientation.
+Les valeurs restent +30°, 0° et −30° ; le bouton illustré « Point de vue inconnu »
+conserve une valeur nulle et ne déduit pas une hauteur ni un azimut.

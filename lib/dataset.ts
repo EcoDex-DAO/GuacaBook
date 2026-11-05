@@ -17,6 +17,7 @@ export type Photo = {
   width: number;
   height: number;
   capturedAt: string;
+  metadataOrigin?: { capturedAt?: "exif" | "manual" | "batch"; sessionId?: "manual" | "batch" };
   sessionId: string;
   boxes: Box[];
   birdId?: string;
@@ -35,6 +36,7 @@ export type Photo = {
 };
 export type Dataset = {
   batchStages?: Record<string, number>;
+  batchMetadataDefaults?: Record<string, { capturedAt: string; sessionId: string }>;
   profile: string;
   consent: boolean;
   researchConsent?: { version: string; acceptedAt: string };
@@ -88,6 +90,7 @@ export function coco(data: Dataset) {
         photo_id: p.id,
         session_id: p.sessionId || null,
         quality: p.quality,
+        metadata_origin: p.metadataOrigin ?? null,
         original_file_name: p.name,
         individual_id: p.birdId || null,
         batch_id: p.batchId || null,
@@ -228,6 +231,7 @@ export function removeBird(data: Dataset, birdId: string): Dataset {
     birds: data.birds.filter(b => b.id !== birdId),
     photos: retained,
     deletedPhotoIds: [...new Set([...(data.deletedPhotoIds || []), ...removedIds])],
+    batchMetadataDefaults: Object.fromEntries(Object.entries(data.batchMetadataDefaults || {}).filter(([key]) => !removedBatches.has(key) || retainedBatches.has(key))),
     batchStages: Object.fromEntries(Object.entries(data.batchStages || {}).filter(
       ([key]) => !removedBatches.has(key) || retainedBatches.has(key),
     )),

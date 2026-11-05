@@ -73,7 +73,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
       Object.assign(document.images[i].guacabook,{original_file:original,sha256});
       imageRows.push({id:photo.id,width:photo.width,height:photo.height,file_name:path,identity:document.images[i].identity,
         identities:[...new Set(photo.boxes.map(b=>b.birdId).filter(Boolean).concat(photo.birdId || []))],timestamp:photo.capturedAt || null,date:photo.capturedAt.slice(0,10)||null,
-        session_id:photo.sessionId||null,batch_id:photo.batchId||null,quality:photo.quality,annotation_status:photo.completed?"complete":"draft",original_file:original,sha256});
+        metadata_origin:photo.metadataOrigin??null,session_id:photo.sessionId||null,batch_id:photo.batchId||null,quality:photo.quality,annotation_status:photo.completed?"complete":"draft",original_file:original,sha256});
       for(let j=0;j<photo.boxes.length;j++) {
         const box=photo.boxes[j];
         if(box.category!=="periocular_region")continue;
@@ -120,7 +120,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
   });
   Object.assign(document.guacabook,{crops:cropLinks,annotation_protocol:"guacabook-v1",review_policy:"per-region, source revision checked by server"});
   zip.file("annotations.json",JSON.stringify(document,null,2));
-  zip.file("metadata.csv",csv(["id","width","height","file_name","identity","identities","timestamp","date","session_id","batch_id","quality","annotation_status","original_file","sha256"],imageRows));
+  zip.file("metadata.csv",csv(["id","width","height","file_name","identity","identities","timestamp","date","session_id","batch_id","quality","annotation_status","metadata_origin","original_file","sha256"],imageRows));
   zip.file("regions.csv",csv(["annotation_id","coco_annotation_id","image_id","identity","side","usability","occluded","review","reviewer_id","reviewed_at","review_revision","bbox","crop_file","exclusion_reasons"],regionRows));
   zip.file("crops.csv",csv(["crop_file","image_id","coco_image_id","annotation_id","coco_annotation_id","identity","side","source_file","original_file","source_bbox","width","height","sha256"],cropRows));
   zip.file("individuals.csv",csv(["id","name","species","speciesInfo","sex","birthYear"],data.birds.map(b=>({...b}))));

@@ -781,3 +781,12 @@ textarea {
 .brand small { font-size: 12px; }
 
 footer.app-version { display: block; max-width: 1540px; margin: 12px auto; padding: 8px 4%; border: 0; border-radius: 0; box-shadow: none; background: transparent; font-size: 12px; color: #53716f; }
+
+.height-picker { min-width: 0; margin: 18px 0 12px; padding: 0; border: 0; }
+.height-picker legend { margin-bottom: 10px; font-size: 13px; }
+.height-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.height-options button { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; min-width: 0; padding: 8px; font-size: 12px; }
+.height-glyph { display: block; width: 100%; max-width: 120px; height: auto; }
+.unknown-viewpoint { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; margin-top: 10px; }
+.unknown-viewpoint .height-glyph { width: 70px; flex-shrink: 0; }
+.height-options button[aria-pressed="true"], .unknown-viewpoint[aria-pressed="true"] { background: #264f40; color: #fff; border-color: #264f40; }

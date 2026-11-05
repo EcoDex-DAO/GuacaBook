@@ -2,12 +2,14 @@
 import { useI18n, LanguagePicker } from "./components/I18n";
 import { useEffect, useState } from "react";
 import { useCloudWorkspace } from "../lib/useCloudWorkspace";
+import { inheritBatchMetadata, rememberBatchMetadata } from "../lib/batchMetadata";
 import RegionChecks from "./components/RegionChecks";
 import { buildV1Archive } from "../lib/v1Archive";
 import { readCloudRow, loadCloudDataset } from "../lib/cloud";
 import exifr from "exifr";
 import {
   Box,
+  Dataset,
   Photo,
   nextBatchTask,
   requiredSides,
@@ -133,23 +135,20 @@ function Home() {
     setSide(photo ? requiredSides(photo)[0] : "unknown");
   }, [active, step]);
   function patchPhoto(patch: Partial<Photo>) {
-    if (photo)
-      update((d) => ({
+    if (!photo) return;
+    update(d => {
+      const updated = {
         ...d,
-        photos: d.photos.map((p) =>
-          p.id === photo.id
-            ? {
-                ...p,
-                completed: false,
-                annotationVersion: 1,
-                doneSteps: (
-                  p.doneSteps || (p.completed ? [0, 1, 2, 3, 4, 5] : [])
-                ).filter((s) => s !== step && s !== 5),
-                ...patch,
-              }
-            : p,
-        ),
-      }));
+        photos: d.photos.map(p => p.id === photo.id ? {
+          ...p, completed: false, annotationVersion: 1 as const,
+          doneSteps: (p.doneSteps || (p.completed ? [0,1,2,3,4,5] : [])).filter(s => s !== step && s !== 5),
+          ...patch,
+        } : p),
+      };
+      return patch.capturedAt !== undefined || patch.sessionId !== undefined
+        ? rememberBatchMetadata(updated, updated.photos.find(p => p.id === photo.id)!)
+        : updated;
+    });
   }
   function choose(id: string) {
     setBird(id);
@@ -191,6 +190,7 @@ function Home() {
             width: bitmap.width,
             height: bitmap.height,
             capturedAt,
+            metadataOrigin: { ...(capturedAt ? { capturedAt: "exif" as const } : {}), ...(session.trim() ? { sessionId: "manual" as const } : {}) },
             sessionId: session.trim(),
             birdId: bird,
             batchId,
@@ -273,13 +273,13 @@ function Home() {
     });
   }
   function openPhoto(p: Photo) {
-    if (!p.birdId && bird)
-      update((d) => ({
-        ...d,
-        photos: d.photos.map((x) =>
-          x.id === p.id ? { ...x, birdId: bird } : x,
-        ),
-      }));
+    update(d => {
+      let assigned = !p.birdId && bird ? {
+        ...d, photos: d.photos.map(x => x.id === p.id ? { ...x, birdId: bird } : x),
+      } : d;
+      if (photo && step === 0) assigned = rememberBatchMetadata(assigned, photo);
+      return inheritBatchMetadata(assigned, p.id);
+    });
     setActive(p.id);
     if (p.birdId) setBird(p.birdId);
     setScreen("annotate");
@@ -304,11 +304,15 @@ function Home() {
     };
     const currentBatch = batch.map((p) => (p.id === photo.id ? changed : p));
     const next = nextBatchTask(currentBatch, photo.id, step);
-    update((d) => ({
-      ...d,
-      photos: d.photos.map((p) => (p.id === photo.id ? changed : p)),
-      batchStages: { ...d.batchStages, [batchKey]: next?.step ?? 5 },
-    }));
+    update(d => {
+      let updated: Dataset = {
+        ...d,
+        photos: d.photos.map(p => p.id === photo.id ? changed : p),
+        batchStages: { ...d.batchStages, [batchKey]: next?.step ?? 5 },
+      };
+      if (step === 0) updated = rememberBatchMetadata(updated, changed);
+      return next ? inheritBatchMetadata(updated, next.id) : updated;
+    });
     if (next) setActive(next.id);
     else {
       setScreen("batch");
@@ -816,7 +820,7 @@ function Home() {
                           step="1"
                           value={photo.capturedAt}
                           onChange={(e) =>
-                            patchPhoto({ capturedAt: e.target.value })
+                            patchPhoto({ capturedAt: e.target.value, metadataOrigin: { ...photo.metadataOrigin, capturedAt: "manual" } })
                           }
                         />
                       </label>
@@ -832,12 +836,13 @@ function Home() {
                         <input
                           value={photo.sessionId}
                           onChange={(e) =>
-                            patchPhoto({ sessionId: e.target.value })
+                            patchPhoto({ sessionId: e.target.value, metadataOrigin: { ...photo.metadataOrigin, sessionId: "manual" } })
                           }
                         />
                       </label>
                     </>
                   )}
+                  {step === 0 && (photo.metadataOrigin?.capturedAt === "batch" || photo.metadataOrigin?.sessionId === "batch") && <p className="small">{t("Date ou séance reprise de la photo précédente du lot. Vérifiez ces informations pour cette photo.")}</p>}
                   {step === 1 && (
                     <ViewReference
                       value={photo.viewpoint}

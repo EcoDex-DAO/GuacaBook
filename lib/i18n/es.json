@@ -449,5 +449,9 @@
   "Version de l’application": "Versión de la aplicación",
   "Bêta": "Beta",
   "Stable": "Estable",
-  "Photo source modifiée depuis la revue": "La foto de origen cambió desde la revisión"
+  "Photo source modifiée depuis la revue": "La foto de origen cambió desde la revisión",
+  "Date ou séance reprise de la photo précédente du lot. Vérifiez ces informations pour cette photo.": "Fecha o sesión recuperada de la foto anterior del lote. Comprueba estos datos para esta foto.",
+  "Au-dessus de l’ara": "Por encima del guacamayo",
+  "En dessous de l’ara": "Por debajo del guacamayo",
+  "Choisissez d’abord une orientation pour préciser la hauteur.": "Elige primero una orientación para indicar la altura de la cámara."
 }
