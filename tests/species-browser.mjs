@@ -2,7 +2,7 @@ import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import JSZip from "jszip";
-import { A, rows, setup, signIn } from "./supabase-mock.mjs";
+import { A, approveAllForTest, rows, setup, signIn } from "./supabase-mock.mjs";
 const browser = await chromium.launch({ executablePath: "/usr/bin/chromium", args: ["--no-sandbox", "--enable-unsafe-swiftshader"] });
 try {
   const page = await browser.newPage({ locale: "fr-FR" });
@@ -40,6 +40,7 @@ try {
   await species().selectOption("hybrid");
   await page.getByLabel("Parent A", { exact: true }).selectOption("Ara ararauna");
   await page.getByLabel("Parent B", { exact: true }).selectOption("Ara macao");
+  await page.getByLabel("Sous-espèce (facultatif) · Parent B", { exact: true }).fill("Ara macao macao");
   await create("Known parents");
   await species().selectOption("hybrid");
   await page.getByLabel("Parent A", { exact: true }).selectOption("hybrid");
@@ -58,23 +59,29 @@ try {
   assert.equal(birds[1].species, "Anodorhynchus hyacinthinus");
   assert.deepEqual(birds[2].speciesInfo, { kind: "other", label: "Ara déclaré par le propriétaire" });
   assert.deepEqual(birds[3].speciesInfo, { kind: "hybrid", label: "Catalina", parents: [{ kind: "unknown" }, { kind: "unknown" }] });
-  assert.deepEqual(birds[4].speciesInfo.parents, [{ kind: "species", scientificName: "Ara ararauna" }, { kind: "species", scientificName: "Ara macao" }]);
+  assert.deepEqual(birds[4].speciesInfo.parents, [{ kind: "species", scientificName: "Ara ararauna" }, { kind: "species", scientificName: "Ara macao", subspecies: "Ara macao macao" }]);
   assert.deepEqual(birds[5].speciesInfo.parents, [{ kind: "hybrid" }, { kind: "other", label: "Ascendance déclarée" }]);
   const card = page.locator("section.animal").filter({ has: page.getByRole("heading", { name: "Known parents", exact: true }) });
   await card.getByRole("button", { name: "Choisir cet animal →", exact: true }).click();
   await page.getByLabel("Photos du lot").setInputFiles({ name: "ara.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  for (const name of ["Nette / exploitable", "Face", "Le corps n’est pas visible", "Non, aucun œil visible"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.getByRole("button", { name: "Valider et continuer →", exact: true }).click();
+  }
+  await page.getByRole("button", { name: "Terminer l’annotation →", exact: true }).click();
   await save();
+  await approveAllForTest(A);
   await page.getByText("Exporter mes données", { exact: true }).click();
   const pending = page.waitForEvent("download");
   await page.getByRole("button", { name: "Exporter le dataset ↗", exact: true }).click();
   const download = await pending;
   const zip = await JSZip.loadAsync(await readFile(await download.path()));
   const coco = JSON.parse(await zip.file("annotations.json").async("string"));
-  assert.deepEqual(coco.guacabook.individuals, birds);
+  assert.deepEqual(coco.guacabook.individuals, [birds[4]]);
   await page.reload();
   await page.getByRole("heading", { name: "Known parents", exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await species().selectOption("hybrid");
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  console.log("PASS: species catalog, unknown, custom species, optional/known/mixed hybrid parents, cloud persistence and COCO round trip, mobile (simulated API).");
+  console.log("PASS: species catalog, unknown, custom species, optional/known/mixed hybrid parents and parent subspecies, cloud persistence and COCO round trip, mobile (simulated API).");
 } finally { await browser.close(); }

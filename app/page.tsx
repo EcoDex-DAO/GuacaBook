@@ -21,8 +21,8 @@ import {
   stepComplete,
   removeBird,
 } from "../lib/dataset";
-import AnimalForm from "./components/AnimalForm";
-import { macawSpecies } from "../lib/macaws";
+import AnimalForm, { EditSubspecies } from "./components/AnimalForm";
+import { declaredSubspecies, macawSpecies } from "../lib/macaws";
 import ViewReference from "./components/ViewReference";
 import AnnotationCanvas from "./components/AnnotationCanvas";
 import BirdGlyph from "./components/BirdGlyph";
@@ -108,6 +108,7 @@ function Home() {
     }));
   }
   const selected = data.birds.find((b) => b.id === bird);
+  const selectedSubspecies = declaredSubspecies(selected?.speciesInfo);
   const photos = data.photos.filter((p) =>
     bird
       ? p.birdId === bird ||
@@ -528,7 +529,13 @@ function Home() {
                     ? `${t("Hybride")}${b.speciesInfo.label ? ` · ${b.speciesInfo.label}` : ""}`
                     : macawSpecies.some(([scientificName]) => scientificName === b.species)
                       ? `${t(macawSpecies.find(([scientificName]) => scientificName === b.species)![1])} · ${b.species}`
-                      : b.species || t("Espèce inconnue")}</p>
+                      : b.species || t("Espèce inconnue")}
+                    {declaredSubspecies(b.speciesInfo) && ` · ${declaredSubspecies(b.speciesInfo)}`}
+                  </p>
+                  {b.speciesInfo?.kind === "hybrid" && b.speciesInfo.parents.map((parent, index) => {
+                    const subspecies = declaredSubspecies(parent);
+                    return subspecies && <p className="small" key={index}>{t(index === 0 ? "Parent A" : "Parent B")} · {subspecies}</p>;
+                  })}
                   <p className="small">
                     {t(b.sex === "male" ? "Mâle" : b.sex === "female" ? "Femelle" : "Sexe inconnu")}
                     {" · "}{b.birthYear ? t("Naissance : {year} · environ {age} an(s)", { year: b.birthYear, age: new Date().getFullYear() - b.birthYear }) : t("Année de naissance inconnue")}
@@ -547,6 +554,10 @@ function Home() {
                     {" "}
                     {t("Choisir cet animal →")}{" "}
                   </button>
+                  <EditSubspecies bird={b} onSave={speciesInfo => update(d => ({
+                    ...d,
+                    birds: d.birds.map(animal => animal.id === b.id ? { ...animal, speciesInfo } : animal),
+                  }))} />
                   <button className="delete-animal" onClick={() => setDeletingBird({
                     id: b.id, name: b.name || t("Ara sans nom"),
                     count: data.photos.filter(p => p.birdId === b.id || p.boxes.some(box => box.birdId === b.id)).length,
@@ -570,6 +581,7 @@ function Home() {
                     {" "}
                     {t("Animal sélectionné :")}{" "}
                     <strong>{selected?.name || t("Ara sans nom")}</strong>
+                    {selectedSubspecies && ` · ${selectedSubspecies}`}
                   </p>
                   <label>
                     {" "}
@@ -700,7 +712,7 @@ function Home() {
                   {t("← Retour au lot")}{" "}
                 </button>
                 <span>
-                  {selected?.name || t("Ara")} {t("· Photo")}{" "}
+                  {selected?.name || t("Ara")}{selectedSubspecies && ` · ${selectedSubspecies}`} {t("· Photo")}{" "}
                   {batch.findIndex((p) => p.id === photo.id) + 1}/{batch.length}{" "}
                   · {photo.name}
                 </span>

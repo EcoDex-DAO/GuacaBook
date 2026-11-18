@@ -1,4 +1,4 @@
-// Species, not subspecies or commercial hybrid names. Scientific IDs are stable
+// Scientific species IDs are stable
 // across interface languages; identification is declared by the contributor.
 export const macawSpecies = [
   ["Ara ararauna", "Ara bleu"],
@@ -21,16 +21,28 @@ export const macawSpecies = [
 ] as const;
 export type ParentSpecies =
   | { kind: "unknown" }
-  | { kind: "species"; scientificName: string }
-  | { kind: "other"; label: string }
+  | { kind: "species"; scientificName: string; subspecies?: string }
+  | { kind: "other"; label: string; subspecies?: string }
   | { kind: "hybrid" };
 export type SpeciesInfo =
   | Exclude<ParentSpecies, { kind: "hybrid" }>
   | { kind: "hybrid"; parents: [ParentSpecies, ParentSpecies]; label?: string };
-export function declaredSpecies(value: string, other: string): ParentSpecies {
-  if (value === "other") return { kind: "other", label: other.trim() };
+export type SubspeciesTaxon = Extract<ParentSpecies, { kind: "species" | "other" }>;
+
+export function withSubspecies(taxon: SubspeciesTaxon, value: string): SubspeciesTaxon {
+  const { subspecies: previous, ...species } = taxon;
+  const subspecies = value.trim();
+  return subspecies ? { ...species, subspecies } : species;
+}
+
+export function declaredSubspecies(taxon?: SpeciesInfo | ParentSpecies): string | undefined {
+  return taxon?.kind === "species" || taxon?.kind === "other" ? taxon.subspecies : undefined;
+}
+
+export function declaredSpecies(value: string, other: string, subspecies = ""): ParentSpecies {
+  if (value === "other") return withSubspecies({ kind: "other", label: other.trim() }, subspecies);
   if (value === "hybrid") return { kind: "hybrid" };
   if (macawSpecies.some(([scientificName]) => scientificName === value))
-    return { kind: "species", scientificName: value };
+    return withSubspecies({ kind: "species", scientificName: value }, subspecies);
   return { kind: "unknown" };
 }

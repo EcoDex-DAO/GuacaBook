@@ -1,3 +1,4 @@
+import { declaredSubspecies } from "./macaws";
 import {approvedDataset, type PhotoReview} from "./photoReviews";
 import { APP_VERSION } from "./version";
 import JSZip from "jszip";
@@ -35,6 +36,7 @@ images/ contains lossless PNG originals normalized using EXIF orientation. All C
 originals/ preserves uploaded bytes; these files may retain private EXIF metadata. sha256 is the hash of those bytes.
 individuals/<identity>/<anatomical-side>/ contains periocular PNG crops, never resized. Unknown identity/side is explicit.
 Each crop is linked to its normalized image, uploaded original, numeric COCO annotation and stable annotation ID in crops.csv and annotations.json guacabook.crops.
+individuals.csv and wildme/metadata.csv include a subspecies column when declared. Hybrid parent subspecies are stored in individuals.csv speciesInfo and in COCO.
 metadata.csv is per image; regions.csv documents every periocular region, including exclusion reasons. Empty dates/unknowns are never guessed.
 wildme/metadata.csv targets the documented MiewID CSV interface: theta,viewpoint,name,file_name,species,file_path,x,y,w,h. It contains only completed, sharp, identified, known-side, usable, non-occluded, explicitly reviewed/accepted regions. Duplicate crops are excluded, and conflicting identities on identical regions are withheld.
 viewpoint means anatomical periocular side (left/right) for this task, not a WBIA global body-orientation label. Camera azimuth/elevation are separate fields. theta=0 because these crops are axis-aligned; it is NOT camera azimuth.
@@ -119,7 +121,7 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
   const samples=assignSplits(candidates.filter(row=>!excluded.has(row.box.id)));
   const wildme=samples.map(row=>{
     const crop=cropRows.find(c=>c.annotation_id===row.box.id)!;
-    return {theta:0,viewpoint:row.box.side,name:row.bird.id,file_name:row.path.split("/").at(-1),species:row.bird.species||"unknown",file_path:row.path,
+    return {theta:0,viewpoint:row.box.side,name:row.bird.id,file_name:row.path.split("/").at(-1),species:row.bird.species||"unknown",subspecies:declaredSubspecies(row.bird.speciesInfo),file_path:row.path,
       x:0,y:0,w:crop.width,h:crop.height,annotation_id:row.box.id,source_image_id:row.photo.id,session_id:row.photo.sessionId||null,
       timestamp:row.photo.capturedAt||null,camera_azimuth:row.photo.viewpoint?.azimuth??null,camera_elevation:row.photo.viewpoint?.elevation??null,
       split_closed:row.split_closed,split_open:row.split_open};
@@ -129,8 +131,8 @@ export async function buildV1Archive(data: Dataset, reviews: Map<string,Review> 
   zip.file("metadata.csv",csv(["id","width","height","file_name","identity","identities","timestamp","date","session_id","batch_id","quality","annotation_status","metadata_origin","original_file","sha256"],imageRows));
   zip.file("regions.csv",csv(["annotation_id","coco_annotation_id","image_id","identity","side","visibility","usability","sharpness","occluded","review","reviewer_id","reviewed_at","review_revision","bbox","crop_file","exclusion_reasons"],regionRows));
   zip.file("crops.csv",csv(["crop_file","image_id","coco_image_id","annotation_id","coco_annotation_id","identity","side","source_file","original_file","source_bbox","width","height","sha256"],cropRows));
-  zip.file("individuals.csv",csv(["id","name","species","speciesInfo","sex","birthYear"],data.birds.map(b=>({...b}))));
-  zip.file("wildme/metadata.csv",csv(["theta","viewpoint","name","file_name","species","file_path","x","y","w","h","annotation_id","source_image_id","session_id","timestamp","camera_azimuth","camera_elevation","split_closed","split_open"],wildme));
+  zip.file("individuals.csv",csv(["id","name","species","speciesInfo","sex","birthYear","subspecies"],data.birds.map(b=>({...b,subspecies:declaredSubspecies(b.speciesInfo)}))));
+  zip.file("wildme/metadata.csv",csv(["theta","viewpoint","name","file_name","species","file_path","x","y","w","h","annotation_id","source_image_id","session_id","timestamp","camera_azimuth","camera_elevation","split_closed","split_open","subspecies"],wildme));
   zip.file("wildme/prepare.py",PREPARE_MIEW);zip.file("README.txt",instructions);
   const counts=(key:"split_closed"|"split_open")=>Object.fromEntries(["train","valid","test","unsplit"].map(split=>[split,samples.filter(s=>s[key]===split).length]));
   const report={version:APP_VERSION,schema:3,images:data.photos.length,periocular_regions:regionRows.length,eligible_regions:samples.length,

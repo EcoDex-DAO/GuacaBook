@@ -10,6 +10,9 @@ test('exports only independently approved, unchanged photos, including photos wi
  for(const decision of [{...accepted,decision:'rejected' as const},{...accepted,reviewer_id:'owner'},{...accepted,reviewer_id:null},{...accepted,source_sha256:'bad'}])assert.equal((await approvedDataset(dataset,new Map([['p',decision]]))).photos.length,0);
  assert.equal((await approvedDataset({...dataset,photos:[{...dataset.photos[0],bodyVisibility:'unknown'}]},map)).photos.length,0);
  assert.equal((await approvedDataset({...dataset,birds:[{...dataset.birds[0],species:'Other'}]},map)).photos.length,0);
+ const [bird]=dataset.birds;
+ const withSubspecies:Dataset={...dataset,birds:[{...bird,speciesInfo:{kind:'species',scientificName:bird.species,subspecies:'Ara ararauna ararauna'}}]};
+ assert.equal((await approvedDataset(withSubspecies,map)).photos.length,0);
  assert.equal((await approvedDataset({...dataset,photos:[{...dataset.photos[0],blob:new Blob(['replacement'])}]},map)).photos.length,0);
  assert.equal((await approvedDataset({...dataset,photos:[...dataset.photos,{...dataset.photos[0],id:'unapproved'}]},map)).photos.length,1);
 });

@@ -27,7 +27,10 @@ try {
     .waitFor();
   await page.getByRole("button", { name: "Revenir au dataset" }).click();
   await page.getByLabel("Nom (facultatif)", { exact: true }).fill("Kiwi");
+  await page.getByLabel("Espèce", { exact: true }).selectOption("Ara macao");
+  await page.getByLabel("Sous-espèce (facultatif)", { exact: true }).fill("Ara macao macao");
   await page.getByRole("button", { name: "Créer un ara", exact: true }).click();
+  await expect(page.getByText("Animal sélectionné :")).toContainText("Ara macao macao");
   await page.getByLabel("Séance de prise de vue").fill("matin-1");
   const png = await page.evaluate(() => {
     const c = document.createElement("canvas");
@@ -279,6 +282,14 @@ try {
     .first()
     .waitFor();
   await page.reload();
+  await page.getByText("Modifier la sous-espèce", { exact: true }).click();
+  const subspeciesInput = page.locator("section.animal").getByLabel("Sous-espèce (facultatif)");
+  await expect(subspeciesInput).toHaveValue("Ara macao macao");
+  await subspeciesInput.fill("Ara macao cyanopterus");
+  await page.getByRole("button", { name: "Enregistrer la sous-espèce" }).click();
+  await expect.poll(() => rows.get(A).dataset.birds[0].speciesInfo.subspecies).toBe("Ara macao cyanopterus");
+  await page.reload();
+  await expect(page.locator("section.animal")).toContainText("Ara macao cyanopterus");
   await page
     .getByRole("button", { name: "Choisir cet animal →", exact: true })
     .click();
@@ -295,6 +306,14 @@ try {
   const dl = await dp;
   const zip = await JSZip.loadAsync(await readFile(await dl.path()));
   const out = JSON.parse(await zip.file("annotations.json").async("string"));
+  assert.deepEqual(out.guacabook.individuals[0].speciesInfo, {
+    kind: "species", scientificName: "Ara macao", subspecies: "Ara macao cyanopterus",
+  });
+  for (const path of ["individuals.csv", "wildme/metadata.csv"]) {
+    const [header, row] = (await zip.file(path).async("string")).trimEnd().split("\r\n");
+    assert.equal(header.split(",").at(-1), "subspecies");
+    assert.equal(row.split(",").at(-1), "Ara macao cyanopterus");
+  }
   assert.equal(out.images.length, 2);
   assert.equal(out.annotations.length, 5);
   assert.deepEqual(

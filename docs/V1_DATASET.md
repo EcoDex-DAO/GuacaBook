@@ -116,6 +116,7 @@ y compris absence de revue, flou, inconnues et doublons. `report.json` donne les
 
 - `name` : UUID individuel global, identique pour les deux côtés.
 - `species` : nom scientifique ou déclaration conservée ; `unknown` si absent.
+- `subspecies` : sous-espèce déclarée pour l’animal ; vide si inconnue. Les sous-espèces des parents hybrides restent dans `speciesInfo` de `individuals.csv` et dans COCO.
 - `viewpoint` : côté anatomique de la **région périoculaire**, `left`/`right`, pour
   grouper les comparaisons MiewID. Ce n’est pas un label d’orientation globale WBIA.
 - `theta=0` : le rectangle extrait est aligné aux axes. Ne jamais utiliser l’azimut

@@ -1,7 +1,7 @@
 # Espèces et hybridation
 
 Le formulaire distingue les espèces des noms de croisements. `lib/macaws.ts`
-répertorie 17 espèces d’aras, sans subdiviser les sous-espèces. Les noms courants
+répertorie 17 espèces d’aras. Les noms courants
 sont traduits ; les noms scientifiques stockés restent identiques dans les quatre
 langues. Cette liste peut évoluer. « Autre » accepte une déclaration libre sans
 la transformer automatiquement en taxon reconnu. « Espèce inconnue » reste le
@@ -18,6 +18,15 @@ conservé dans les exports COCO personnels et globaux, distingue :
 - `{"kind":"unknown"}` ;
 - `{"kind":"other","label":"texte déclaré"}` ;
 - `{"kind":"hybrid","parents":[...,...],"label":"nom facultatif"}`.
+
+Le champ libre facultatif « Sous-espèce » peut être renseigné ou corrigé pour une
+espèce du catalogue ou une espèce déclarée via « Autre ». La sous-espèce est
+stockée dans `speciesInfo.subspecies` ou dans les entrées de `speciesInfo.parents`
+pour un hybride. Une valeur vide est omise. Les exports COCO et V1 conservent ces
+déclarations. Les CSV V1 `individuals.csv` et `wildme/metadata.csv` ajoutent une
+colonne `subspecies` pour l’animal. Les sous-espèces des parents figurent dans la
+colonne JSON `speciesInfo` de `individuals.csv`. Une modification de la fiche
+animal nécessite une nouvelle validation des photos liées pour les réexporter.
 
 Les parents A et B n’indiquent ni le sexe ni l’ordre maternel/paternel. Chaque
 parent peut être une espèce du catalogue, inconnu, lui-même hybride, ou Autre

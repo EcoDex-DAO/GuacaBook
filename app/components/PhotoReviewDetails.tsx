@@ -1,4 +1,5 @@
 "use client";
+import { declaredSubspecies } from "../../lib/macaws";
 import {useState} from 'react';
 import type {Dataset,Photo,Box} from '../../lib/dataset';
 import {useI18n} from './I18n';
@@ -29,6 +30,7 @@ export default function PhotoReviewDetails({photo,dataset,url}:{photo:Photo;data
  const angles:Record<number,string>={0:'Face',45:'Trois-quarts droit',90:'Profil droit',135:'Arrière droit',180:'Dos',225:'Arrière gauche',270:'Profil gauche',315:'Trois-quarts gauche'};
  const viewpoint=photo.viewpoint?`${t(angles[photo.viewpoint.azimuth]??'Autre orientation')} · ${t(photo.viewpoint.elevation>0?'Au-dessus de l’ara':photo.viewpoint.elevation<0?'En dessous de l’ara':'À hauteur de l’ara')}`:t('Point de vue inconnu');
  const bird=dataset.birds.find(b=>b.id===photo.birdId);
+ const subspecies=declaredSubspecies(bird?.speciesInfo);
  const body=photo.bodyVisibility==='full'?'Entier':photo.bodyVisibility==='partial'?'Partiellement hors cadre':photo.bodyVisibility==='not_visible'?'Non visible':'Je ne sais pas';
  const eye=photo.eyeVisible==='yes'?`${t('Visible')} · ${t(photo.eyeLayout==='both'?'Deux yeux':photo.eyeLayout==='left'?'gauche':photo.eyeLayout==='right'?'droite':'Côté inconnu')}`:t(photo.eyeVisible==='no'?'Non visible':'Je ne sais pas');
  return <>
@@ -41,7 +43,7 @@ export default function PhotoReviewDetails({photo,dataset,url}:{photo:Photo;data
    </g>;})}
   </svg>
   <div className="review-legend">{(['macaw','eye','periocular_region'] as const).map(c=><span key={c}><i style={{background:colors[c]}}/>{t(c==='macaw'?'Corps':c==='eye'?'Œil':'Région périoculaire')}</span>)}</div>
-  <dl className="photo-properties">{Object.entries({[t('Animal')]:bird?.name||t('Ara sans nom'),[t('Qualité')]:t(photo.quality==='usable'?'Nette et exploitable':photo.quality==='blurry'?'Flou':'À annoter'),[t('Corps')]:t(body),[t('Yeux visibles')]:eye,[t('Point de vue')]:viewpoint,[t('Date et séance')]:`${photo.capturedAt.replace('T',' ')||'—'} · ${photo.sessionId||t('Séance non renseignée')}`}).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
+  <dl className="photo-properties">{Object.entries({[t('Animal')]:[bird?.name||t('Ara sans nom'),subspecies].filter(Boolean).join(' · '),[t('Qualité')]:t(photo.quality==='usable'?'Nette et exploitable':photo.quality==='blurry'?'Flou':'À annoter'),[t('Corps')]:t(body),[t('Yeux visibles')]:eye,[t('Point de vue')]:viewpoint,[t('Date et séance')]:`${photo.capturedAt.replace('T',' ')||'—'} · ${photo.sessionId||t('Séance non renseignée')}`}).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl>
   <p className="small">{t('Les côtés sont ceux de l’animal. Le tiret indique une information non applicable.')}</p>
   <div className="annotation-table-scroll"><table className="review-annotation-table"><caption>{t('Annotations à vérifier')}</caption><thead><tr>{['Zone','Côté','Visibilité','Netteté de la région','Masquage de la région'].map(label=><th scope="col" key={label}>{t(label)}</th>)}</tr></thead>
    <tbody>{photo.boxes.map((b,index)=><tr key={b.id} data-annotation-row={b.id}><th scope="row"><button type="button" aria-pressed={focused===b.id} onClick={()=>setFocused(focused===b.id?null:b.id)}><i style={{background:colors[b.category]}}/>{index+1}. {category(b)}</button></th><td>{side(b)}</td><td>{visibility(b)}</td><td>{sharpness(b)}</td><td>{occlusion(b)}</td></tr>)}</tbody></table></div>
