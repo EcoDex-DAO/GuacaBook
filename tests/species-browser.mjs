@@ -40,7 +40,7 @@ try {
   await species().selectOption("hybrid");
   await page.getByLabel("Parent A", { exact: true }).selectOption("Ara ararauna");
   await page.getByLabel("Parent B", { exact: true }).selectOption("Ara macao");
-  await page.getByLabel("Sous-espèce (facultatif) · Parent B", { exact: true }).fill("Ara macao macao");
+  await page.getByRole("combobox", { name: "Sous-espèce (facultatif) · Parent B", exact: true }).selectOption("Ara macao macao");
   await create("Known parents");
   await species().selectOption("hybrid");
   await page.getByLabel("Parent A", { exact: true }).selectOption("hybrid");

@@ -19,8 +19,13 @@ conservé dans les exports COCO personnels et globaux, distingue :
 - `{"kind":"other","label":"texte déclaré"}` ;
 - `{"kind":"hybrid","parents":[...,...],"label":"nom facultatif"}`.
 
-Le champ libre facultatif « Sous-espèce » peut être renseigné ou corrigé pour une
-espèce du catalogue ou une espèce déclarée via « Autre ». La sous-espèce est
+La liste facultative « Sous-espèce » affiche les sous-espèces reconnues pour
+l’espèce choisie, selon [AviList v2025](https://doi.org/10.2173/avilist.v2025).
+Les 10 sous-espèces des 17 espèces du catalogue proviennent du
+[tableau AviList v2025 archivé](https://github.com/rdmpage/avilist/blob/6d53d1debe779304cbcb4b84dac14be94e4df55f/checklist.csv).
+AviList Core Team © 2025, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+Une valeur déjà enregistrée reste disponible même si elle est hors référentiel.
+La sous-espèce est
 stockée dans `speciesInfo.subspecies` ou dans les entrées de `speciesInfo.parents`
 pour un hybride. Une valeur vide est omise. Les exports COCO et V1 conservent ces
 déclarations. Les CSV V1 `individuals.csv` et `wildme/metadata.csv` ajoutent une

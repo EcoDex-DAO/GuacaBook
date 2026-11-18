@@ -27,11 +27,19 @@ try {
     .waitFor();
   await page.getByRole("button", { name: "Revenir au dataset" }).click();
   await page.getByLabel("Nom (facultatif)", { exact: true }).fill("Kiwi");
-  const creationSubspecies = page.getByLabel("Sous-espèce (facultatif)", { exact: true });
+  const creationSubspecies = page.getByRole("combobox", { name: "Sous-espèce (facultatif)", exact: true });
   await expect(creationSubspecies).toBeVisible();
   await expect(creationSubspecies).toBeDisabled();
-  await page.getByLabel("Espèce", { exact: true }).selectOption("Ara macao");
-  await creationSubspecies.fill("Ara macao macao");
+  const species = page.getByLabel("Espèce", { exact: true });
+  await species.selectOption("Ara militaris");
+  await expect(creationSubspecies.locator("option")).toHaveText([
+    "Inconnue", "Ara militaris militaris", "Ara militaris mexicanus", "Ara militaris bolivianus",
+  ]);
+  await species.selectOption("Ara ararauna");
+  await expect(creationSubspecies).toBeDisabled();
+  await expect(creationSubspecies.locator("option")).toHaveText("Aucune sous-espèce répertoriée");
+  await species.selectOption("Ara macao");
+  await creationSubspecies.selectOption("Ara macao macao");
   await page.getByRole("button", { name: "Créer un ara", exact: true }).click();
   await expect(page.getByText("Animal sélectionné :")).toContainText("Ara macao macao");
   await page.getByLabel("Séance de prise de vue").fill("matin-1");
@@ -286,9 +294,9 @@ try {
     .waitFor();
   await page.reload();
   await page.getByText("Modifier la sous-espèce", { exact: true }).click();
-  const subspeciesInput = page.locator("section.animal").getByLabel("Sous-espèce (facultatif)");
+  const subspeciesInput = page.locator("section.animal").getByRole("combobox", { name: "Sous-espèce (facultatif)", exact: true });
   await expect(subspeciesInput).toHaveValue("Ara macao macao");
-  await subspeciesInput.fill("Ara macao cyanopterus");
+  await subspeciesInput.selectOption("Ara macao cyanopterus");
   await page.getByRole("button", { name: "Enregistrer la sous-espèce" }).click();
   await expect.poll(() => rows.get(A).dataset.birds[0].speciesInfo.subspecies).toBe("Ara macao cyanopterus");
   await page.reload();

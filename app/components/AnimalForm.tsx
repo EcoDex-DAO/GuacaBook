@@ -1,15 +1,31 @@
 "use client";
 import { useState } from "react";
 import { useI18n } from "./I18n";
-import { declaredSpecies, declaredSubspecies, macawSpecies, SpeciesInfo, withSubspecies } from "../../lib/macaws";
+import { declaredSpecies, declaredSubspecies, macawSpecies, SpeciesInfo, subspeciesOf, withSubspecies } from "../../lib/macaws";
 import type { Bird } from "../../lib/dataset";
+
+function SubspeciesOptions({ options, emptyLabel, saved }: {
+  options: readonly string[];
+  emptyLabel: string;
+  saved?: string;
+}) {
+  return <>
+    <option value="">{emptyLabel}</option>
+    {options.map(name => <option key={name} value={name}>{name}</option>)}
+    {saved && !options.includes(saved) && <option value={saved}>{saved}</option>}
+  </>;
+}
 
 function SpeciesPicker({ label, value, other, subspecies, onChange, onOther, onSubspecies, parent = false }: {
   label: string; value: string; other: string; subspecies: string;
   onChange: (value: string) => void; onOther: (value: string) => void; onSubspecies: (value: string) => void; parent?: boolean;
 }) {
   const { t } = useI18n();
-  const canDeclareSubspecies = Boolean(value && value !== "hybrid");
+  const options = subspeciesOf(value);
+  const emptyLabel = !value ? "Choisir d’abord une espèce"
+    : value === "hybrid" ? "Renseigner les parents ci-dessous"
+    : value === "other" ? "Espèce hors catalogue"
+    : options.length ? "Inconnue" : "Aucune sous-espèce répertoriée";
   return <>
     <label>{label}
       <select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>
@@ -22,14 +38,10 @@ function SpeciesPicker({ label, value, other, subspecies, onChange, onOther, onS
     {value === "other" && <label>{t("Précisez l’espèce")} · {label}
       <input required maxLength={160} value={other} onChange={event => onOther(event.target.value)} />
     </label>}
-    {(!parent || canDeclareSubspecies) && <label>{t("Sous-espèce (facultatif)")}{parent && ` · ${label}`}
-      <input
-        maxLength={160}
-        value={subspecies}
-        disabled={!canDeclareSubspecies}
-        placeholder={t(value === "hybrid" ? "Renseigner les parents ci-dessous" : value ? "Inconnue" : "Choisir d’abord une espèce")}
-        onChange={event => onSubspecies(event.target.value)}
-      />
+    {(!parent || value) && <label>{t("Sous-espèce (facultatif)")}{parent && ` · ${label}`}
+      <select value={subspecies} disabled={!options.length} onChange={event => onSubspecies(event.target.value)}>
+        <SubspeciesOptions options={options} emptyLabel={t(emptyLabel)} />
+      </select>
     </label>}
   </>;
 }
@@ -108,7 +120,12 @@ export function EditSubspecies({ bird, onSave }: { bird: Bird; onSave: (info: Sp
       : { kind: "unknown" }
   );
   const taxa = info.kind === "hybrid" ? info.parents : [info];
-  if (!taxa.some(taxon => taxon.kind === "species" || taxon.kind === "other")) return null;
+  const editableTaxa = taxa.flatMap((taxon, index) => {
+    const options = taxon.kind === "species" ? subspeciesOf(taxon.scientificName) : [];
+    const saved = declaredSubspecies(taxon);
+    return options.length || saved ? [{ index, options, saved }] : [];
+  });
+  if (!editableTaxa.length) return null;
 
   return <details>
     <summary>{t("Modifier la sous-espèce")}</summary>
@@ -118,7 +135,7 @@ export function EditSubspecies({ bird, onSave }: { bird: Bird; onSave: (info: Sp
       if (info.kind === "hybrid") {
         const editParent = (parent: typeof info.parents[number], index: number) =>
           parent.kind === "species" || parent.kind === "other"
-            ? withSubspecies(parent, String(fields.get(String(index)) ?? ""))
+            ? withSubspecies(parent, String(fields.get(String(index)) ?? parent.subspecies ?? ""))
             : parent;
         onSave({ ...info, parents: [editParent(info.parents[0], 0), editParent(info.parents[1], 1)] });
       } else if (info.kind === "species" || info.kind === "other") {
@@ -127,10 +144,12 @@ export function EditSubspecies({ bird, onSave }: { bird: Bird; onSave: (info: Sp
       }
       event.currentTarget.closest("details")?.removeAttribute("open");
     }}>
-      {taxa.map((taxon, index) => (taxon.kind === "species" || taxon.kind === "other") && (
+      {editableTaxa.map(({ index, options, saved }) => (
         <label key={index}>
           {t("Sous-espèce (facultatif)")}{info.kind === "hybrid" && ` · ${t(index === 0 ? "Parent A" : "Parent B")}`}
-          <input name={String(index)} maxLength={160} defaultValue={declaredSubspecies(taxon)} />
+          <select name={String(index)} defaultValue={saved ?? ""}>
+            <SubspeciesOptions options={options} emptyLabel={t("Inconnue")} saved={saved} />
+          </select>
         </label>
       ))}
       <button type="submit">{t("Enregistrer la sous-espèce")}</button>

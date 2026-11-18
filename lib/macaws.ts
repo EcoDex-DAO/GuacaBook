@@ -19,6 +19,20 @@ export const macawSpecies = [
   ["Orthopsittaca manilatus", "Ara macavouanne"],
   ["Diopsittaca nobilis", "Ara noble"],
 ] as const;
+// AviList v2025. Empty lists indicate species without recognized subspecies.
+const macawSubspecies: Partial<Record<(typeof macawSpecies)[number][0], readonly string[]>> = {
+  "Ara militaris": ["Ara militaris militaris", "Ara militaris mexicanus", "Ara militaris bolivianus"],
+  "Ara ambiguus": ["Ara ambiguus ambiguus", "Ara ambiguus guayaquilensis"],
+  "Ara macao": ["Ara macao macao", "Ara macao cyanopterus"],
+  "Diopsittaca nobilis": ["Diopsittaca nobilis nobilis", "Diopsittaca nobilis cumanensis", "Diopsittaca nobilis longipennis"],
+};
+
+export function subspeciesOf(species: string): readonly string[] {
+  return Object.hasOwn(macawSubspecies, species)
+    ? macawSubspecies[species as keyof typeof macawSubspecies] ?? []
+    : [];
+}
+
 export type ParentSpecies =
   | { kind: "unknown" }
   | { kind: "species"; scientificName: string; subspecies?: string }
