@@ -530,11 +530,13 @@ function Home() {
                     : macawSpecies.some(([scientificName]) => scientificName === b.species)
                       ? `${t(macawSpecies.find(([scientificName]) => scientificName === b.species)![1])} · ${b.species}`
                       : b.species || t("Espèce inconnue")}
-                    {declaredSubspecies(b.speciesInfo) && ` · ${declaredSubspecies(b.speciesInfo)}`}
                   </p>
+                  {b.speciesInfo?.kind !== "hybrid" && <p className="small">
+                    {t("Sous-espèce")} · {declaredSubspecies(b.speciesInfo) || t("Non renseignée")}
+                  </p>}
                   {b.speciesInfo?.kind === "hybrid" && b.speciesInfo.parents.map((parent, index) => {
                     const subspecies = declaredSubspecies(parent);
-                    return subspecies && <p className="small" key={index}>{t(index === 0 ? "Parent A" : "Parent B")} · {subspecies}</p>;
+                    return <p className="small" key={index}>{t(index === 0 ? "Parent A" : "Parent B")} · {t("Sous-espèce")} · {subspecies || t("Non renseignée")}</p>;
                   })}
                   <p className="small">
                     {t(b.sex === "male" ? "Mâle" : b.sex === "female" ? "Femelle" : "Sexe inconnu")}

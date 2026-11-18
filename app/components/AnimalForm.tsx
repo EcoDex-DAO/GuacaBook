@@ -9,6 +9,7 @@ function SpeciesPicker({ label, value, other, subspecies, onChange, onOther, onS
   onChange: (value: string) => void; onOther: (value: string) => void; onSubspecies: (value: string) => void; parent?: boolean;
 }) {
   const { t } = useI18n();
+  const canDeclareSubspecies = Boolean(value && value !== "hybrid");
   return <>
     <label>{label}
       <select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>
@@ -21,8 +22,14 @@ function SpeciesPicker({ label, value, other, subspecies, onChange, onOther, onS
     {value === "other" && <label>{t("Précisez l’espèce")} · {label}
       <input required maxLength={160} value={other} onChange={event => onOther(event.target.value)} />
     </label>}
-    {value && value !== "hybrid" && <label>{t("Sous-espèce (facultatif)")}{parent && ` · ${label}`}
-      <input maxLength={160} value={subspecies} onChange={event => onSubspecies(event.target.value)} />
+    {(!parent || canDeclareSubspecies) && <label>{t("Sous-espèce (facultatif)")}{parent && ` · ${label}`}
+      <input
+        maxLength={160}
+        value={subspecies}
+        disabled={!canDeclareSubspecies}
+        placeholder={t(value === "hybrid" ? "Renseigner les parents ci-dessous" : value ? "Inconnue" : "Choisir d’abord une espèce")}
+        onChange={event => onSubspecies(event.target.value)}
+      />
     </label>}
   </>;
 }

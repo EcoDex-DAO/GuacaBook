@@ -27,8 +27,11 @@ try {
     .waitFor();
   await page.getByRole("button", { name: "Revenir au dataset" }).click();
   await page.getByLabel("Nom (facultatif)", { exact: true }).fill("Kiwi");
+  const creationSubspecies = page.getByLabel("Sous-espèce (facultatif)", { exact: true });
+  await expect(creationSubspecies).toBeVisible();
+  await expect(creationSubspecies).toBeDisabled();
   await page.getByLabel("Espèce", { exact: true }).selectOption("Ara macao");
-  await page.getByLabel("Sous-espèce (facultatif)", { exact: true }).fill("Ara macao macao");
+  await creationSubspecies.fill("Ara macao macao");
   await page.getByRole("button", { name: "Créer un ara", exact: true }).click();
   await expect(page.getByText("Animal sélectionné :")).toContainText("Ara macao macao");
   await page.getByLabel("Séance de prise de vue").fill("matin-1");
